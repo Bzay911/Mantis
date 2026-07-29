@@ -1,89 +1,87 @@
 import { Ionicons } from "@expo/vector-icons";
-import { Image, Pressable, ScrollView, Text, View } from "react-native";
+import { Pressable, ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
+import { useQuery } from "@tanstack/react-query";
+import { useMemo, useState } from "react";
+import { API_BASE_URL } from "../../../constants/api-config";
+import { Image } from "expo-image";
 
-const hairStyles = [
-  {
-    title: "All",
-    icon: "cut-outline",
-  },
-  {
-    title: "Long Hair",
-    icon: "person-outline",
-  },
-  {
-    title: "Long Curly",
-    icon: "water-outline",
-  },
-  {
-    title: "Buzz Cut",
-    icon: "flash-outline",
-  },
-  {
-    title: "Fade Cut",
-    icon: "layers-outline",
-  },
-  {
-    title: "Crew Cut",
-    icon: "square-outline",
-  },
-  {
-    title: "Textured Crop",
-    icon: "sparkles-outline",
-  },
-  {
-    title: "Pompadour",
-    icon: "barbell-outline",
-  },
-] as const;
+type Haircut = {
+  id: string;
+  hairType: "Short" | "Medium" | "Long";
+  cutName: string;
+  imageUrl: string | null;
+};
 
-const trendingHaircuts = [
-  {
-    title: "Low Fade",
-    image: require("../../../../assets/images/app-images/mullet.jpeg"),
-  },
-  {
-    title: "Taper Fade",
-    image: require("../../../../assets/images/app-images/mullet.jpeg"),
-  },
-  {
-    title: "Buzz Cut",
-    image: require("../../../../assets/images/app-images/mullet.jpeg"),
-  },
-  {
-    title: "Crew Cut",
-    image: require("../../../../assets/images/app-images/mullet.jpeg"),
-  },
-  {
-    title: "French Crop",
-    image: require("../../../../assets/images/app-images/mullet.jpeg"),
-  },
-  {
-    title: "Textured Crop",
-    image: require("../../../../assets/images/app-images/mullet.jpeg"),
-  },
-  {
-    title: "Pompadour",
-    image: require("../../../../assets/images/app-images/mullet.jpeg"),
-  },
-  {
-    title: "Quiff",
-    image: require("../../../../assets/images/app-images/mullet.jpeg"),
-  },
-  {
-    title: "Side Part",
-    image: require("../../../../assets/images/app-images/mullet.jpeg"),
-  },
-  {
-    title: "Mullet",
-    image: require("../../../../assets/images/app-images/mullet.jpeg"),
-  },
-];
+const fetchHaircuts = async (): Promise<Haircut[]> => {
+  const response = await fetch(`${API_BASE_URL}/api/haircuts/get-all-haircuts`);
+  if (!response.ok) throw new Error("Failed to fetch haircuts");
+  return response.json();
+};
 
+// random-ish icon assignment per hairType — swap these out anytime
+const HAIR_TYPE_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
+  All: "cut-outline",
+  Short: "flash-outline",
+  Medium: "layers-outline",
+  Long: "water-outline",
+};
+
+const FALLBACK_ICON = "sparkles-outline" as const;
 
 export default function ProtectedIndex() {
   const router = useRouter();
+  const [selectedType, setSelectedType] = useState("All");
+
+  const {
+    data: haircuts = [],
+    isLoading,
+    isError,
+  } = useQuery({
+    queryKey: ["haircuts"],
+    queryFn: fetchHaircuts,
+  });
+
+  // build chip list dynamically: "All" + unique hairTypes from the data
+  const chips = useMemo(() => {
+    const uniqueTypes = Array.from(new Set(haircuts.map((h) => h.hairType)));
+    return ["All", ...uniqueTypes];
+  }, [haircuts]);
+
+  // filter based on selected chip
+  const filtered = useMemo(() => {
+    if (selectedType === "All") return haircuts;
+    return haircuts.filter((h) => h.hairType === selectedType);
+  }, [haircuts, selectedType]);
+
+  // group filtered results by hairType for sectioned display
+  const grouped = useMemo(() => {
+    return filtered.reduce<Record<string, Haircut[]>>((acc, item) => {
+      (acc[item.hairType] ??= []).push(item);
+      return acc;
+    }, {});
+  }, [filtered]);
+
+
+  if (isLoading) {
+    return (
+      <SafeAreaView className="flex-1 items-center justify-center bg-black">
+        <Text className="text-white">Loading...</Text>
+      </SafeAreaView>
+    );
+  }
+
+  if (isError) {
+    return (
+      <SafeAreaView className="flex-1 items-center justify-center bg-black">
+        <Text className="text-white">
+          Something went wrong. Pull to refresh.
+        </Text>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView className="flex-1 bg-black p-4">
       <ScrollView
@@ -109,91 +107,79 @@ export default function ProtectedIndex() {
           showsHorizontalScrollIndicator={false}
           className="mt-4"
         >
-          {hairStyles.map((item) => (
-            <View key={item.title} className="mr-6 items-center">
-              <View className="mb-3 h-14 w-14 items-center justify-center rounded-full bg-zinc-800">
-                <Ionicons name={item.icon} size={26} color="#9DC228" />
-              </View>
-              <Text className="text-center text-sm text-white">
-                {item.title}
-              </Text>
-            </View>
-          ))}
+          {chips.map((type) => {
+            const isActive = selectedType === type;
+            return (
+              <Pressable
+                key={type}
+                onPress={() => setSelectedType(type)}
+                className="mr-6 items-center"
+              >
+                <View
+                  className="mb-3 h-14 w-14 items-center justify-center rounded-full"
+                  style={{ backgroundColor: isActive ? "#9DC228" : "#27272a" }}
+                >
+                  <Ionicons
+                    name={HAIR_TYPE_ICONS[type] ?? FALLBACK_ICON}
+                    size={26}
+                    color={isActive ? "black" : "#9DC228"}
+                  />
+                </View>
+                <Text
+                  className="text-center text-sm"
+                  style={{ color: isActive ? "#9DC228" : "white" }}
+                >
+                  {type}
+                </Text>
+              </Pressable>
+            );
+          })}
         </ScrollView>
 
-        <Text className="mt-6 text-xl font-semibold text-white">
-          Trending now
-        </Text>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          className="mt-4"
-        >
-          {trendingHaircuts.map((item) => (
-            <View
-              key={item.title}
-              className="mr-4 w-36 overflow-hidden rounded-xl bg-zinc-900"
+        {Object.entries(grouped).map(([hairType, items]) => (
+          <View key={hairType}>
+            <Text className="mt-6 text-xl font-semibold text-white">
+              {hairType} Hair
+            </Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              className="mt-4"
             >
-              <Image
-                source={item.image}
-                className="h-42 w-36"
-                resizeMode="cover"
-              />
-              <Text className="absolute bottom-0 px-3 py-3 text-sm font-semibold text-white">
-                {item.title}
-              </Text>
-            </View>
-          ))}
-        </ScrollView>
+              {items.map((item) => (
+                <Pressable
+                  key={item.id}
+                  // onPress={() =>
+                  //   router.push({
+                  //     pathname: "/(protected)/image-displayer",
+                  //     params: { id: item.id },
+                  //   })
+                  // }
+                  className="mr-4 w-36 overflow-hidden rounded-xl bg-zinc-900"
+                >
+                  <Image
+                    source={
+                      item.imageUrl
+                        ? { uri: item.imageUrl }
+                        : require("../../../../assets/images/app-images/mullet.jpeg")
+                    }
+                    style={{ height: 280, width: 200 }}
+                    contentFit="cover"
+                  />
+                  <Text className="absolute bottom-0 px-3 py-3 text-sm font-semibold text-white">
+                    {item.cutName}
+                  </Text>
+                </Pressable>
+              ))}
+            </ScrollView>
+          </View>
+        ))}
 
-         <Text className="mt-6 text-xl font-semibold text-white">
-          More to try on
-        </Text>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          className="mt-4"
-        >
-          {trendingHaircuts.map((item) => (
-            <View
-              key={item.title}
-              className="mr-4 w-36 overflow-hidden rounded-3xl bg-zinc-900"
-            >
-              <Image
-                source={item.image}
-                className="h-42 w-36"
-                resizeMode="cover"
-              />
-              <Text className="absolute bottom-0 px-3 py-3 text-sm font-semibold text-white">
-                {item.title}
-              </Text>
-            </View>
-          ))}
-        </ScrollView>
-         <Text className="mt-6 text-xl font-semibold text-white">
-          More to try on
-        </Text>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          className="mt-4"
-        >
-          {trendingHaircuts.map((item) => (
-            <View
-              key={item.title}
-              className="mr-4 w-36 overflow-hidden rounded-3xl bg-zinc-900"
-            >
-              <Image
-                source={item.image}
-                className="h-42 w-36"
-                resizeMode="cover"
-              />
-              <Text className="absolute bottom-0 px-3 py-3 text-sm font-semibold text-white">
-                {item.title}
-              </Text>
-            </View>
-          ))}
-        </ScrollView>
+        {filtered.length === 0 && (
+          <Text className="mt-10 text-center text-zinc-500">
+            No styles found for this filter.
+          </Text>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
