@@ -24,9 +24,17 @@ export default function ProtectedLayout() {
             options={{ presentation: "modal" }}
             />
           <Stack.Screen
-            name="image-displayer"
+            name="generated-image-displayer"
             options={{ presentation: "modal" }}
             />
+          <Stack.Screen
+            name="image-displayer"
+            // options={{ presentation: "modal" }}
+            />
+            <Stack.Screen
+  name="camera-capture-screen"
+  // options={{ presentation: "modal", headerShown: false }}
+/>
             </Stack>
       </KeyboardProvider>
       </QueryClientProvider>

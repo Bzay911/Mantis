@@ -83,13 +83,13 @@ export default function ProtectedIndex() {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-black p-4">
+    <SafeAreaView className="flex-1 bg-black p-2">
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 32 }}
       >
-        <View className="flex-row items-center justify-between gap-4">
-          <Text className="text-4xl font-bold text-white">Mynextcut</Text>
+        <View className="flex-row items-center justify-between gap-4 p-2">
+          <Text className="text-4xl font-bold text-white">Mantis</Text>
           <Pressable
             onPress={() => router.push("/(protected)/get-credits")}
             style={{ backgroundColor: "#9DC228" }}
@@ -99,13 +99,13 @@ export default function ProtectedIndex() {
           </Pressable>
         </View>
 
-        <Text className="mt-6 text-xl font-semibold text-white">
+        <Text className="mt-6 text-xl font-semibold text-white p-2">
           Choose your style
         </Text>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
-          className="mt-4"
+          className="mt-4 p-2"
         >
           {chips.map((type) => {
             const isActive = selectedType === type;
@@ -138,8 +138,8 @@ export default function ProtectedIndex() {
 
         {Object.entries(grouped).map(([hairType, items]) => (
           <View key={hairType}>
-            <Text className="mt-6 text-xl font-semibold text-white">
-              {hairType} Hair
+            <Text className="mt-6 text-xl font-semibold text-white p-2">
+              Hairstyle Options For {hairType} Hair
             </Text>
             <ScrollView
               horizontal
@@ -149,12 +149,12 @@ export default function ProtectedIndex() {
               {items.map((item) => (
                 <Pressable
                   key={item.id}
-                  // onPress={() =>
-                  //   router.push({
-                  //     pathname: "/(protected)/image-displayer",
-                  //     params: { id: item.id },
-                  //   })
-                  // }
+                  onPress={() =>
+                    router.push({
+                      pathname: "/(protected)/image-displayer",
+                      params: { imageUrl: item.imageUrl, cutName: item.cutName },
+                    })
+                  }
                   className="mr-4 w-36 overflow-hidden rounded-xl bg-zinc-900"
                 >
                   <Image

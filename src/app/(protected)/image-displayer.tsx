@@ -1,21 +1,37 @@
-import { Pressable, Text, View } from "react-native";
+import { Pressable, Text, View, useWindowDimensions } from "react-native";
 import { Image } from "expo-image";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { useGeneratedImageStore } from "../../../store/generated-image-store";
+import {
+  ResumableZoom,
+  useImageResolution,
+  fitContainer,
+} from "react-native-zoom-toolkit";
+import { useSelectedCutStore } from "../../../store/use-selected-cut";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function ImageDisplayer() {
   const router = useRouter();
-  const generatedImage = useGeneratedImageStore(
-    (state) => state.generatedImage,
-  );
-  const clearGeneratedImage = useGeneratedImageStore(
-    (state) => state.clearGeneratedImage,
-  );
+  const setSelectedCut = useSelectedCutStore((s) => s.setSelectedCut);
+  const { imageUrl, cutName } = useLocalSearchParams() as {
+    imageUrl: string;
+    cutName: string;
+  };
+
+  const { width, height } = useWindowDimensions();
+  const { isFetching, resolution } = useImageResolution({ uri: imageUrl });
+
+  if (isFetching || resolution === undefined) {
+    return null;
+  }
+
+  const size = fitContainer(resolution.width / resolution.height, {
+    width,
+    height,
+  });
 
   return (
-    <View className="flex-1 bg-[#1c1c1e] p-4">
+    <SafeAreaView className="flex-1 bg-[#1c1c1e] p-4">
       {/* Header */}
       <View className="flex-row items-center mb-6 justify-between px-4">
         <Ionicons
@@ -23,33 +39,33 @@ export default function ImageDisplayer() {
           size={28}
           color="white"
           onPress={() => {
-            clearGeneratedImage();
             router.back();
           }}
         />
-        <Text className="text-4xl font-bold text-white">Nextcut AI</Text>
-        <View className="flex-row items-center justify-center gap-4">
-          <Pressable>
-            <Ionicons name="share-outline" size={28} color="white" />
-          </Pressable>
-          <Pressable
-            style={{ backgroundColor: "#9DC228" }}
-            className="items-center justify-center rounded-full px-4 py-3"
-          >
-            <Text className="text-black text-lg font-bold">Save</Text>
-          </Pressable>
-        </View>
+        <Text className="text-3xl font-bold text-white">{cutName}</Text>
+        <Pressable
+          style={{ backgroundColor: "#9DC228" }}
+          className="items-center justify-center rounded-full px-4 py-3"
+          onPress={() => {
+            setSelectedCut(imageUrl);
+            router.replace("/(protected)/ai-page");
+          }}
+        >
+          <Text className="text-black text-lg font-bold">Use Image</Text>
+        </Pressable>
       </View>
 
-      {generatedImage && (
+      {imageUrl && (
         <View className="flex-1">
-          <Image
-            source={{ uri: generatedImage }}
-            contentFit="cover"
-            style={{ width: "100%", height: 600, borderRadius: 10 }}
-          />
+          <ResumableZoom maxScale={resolution}>
+            <Image
+              source={{ uri: imageUrl }}
+              style={{ ...size }}
+              contentFit="contain"
+            />
+          </ResumableZoom>
         </View>
       )}
-    </View>
+    </SafeAreaView>
   );
 }

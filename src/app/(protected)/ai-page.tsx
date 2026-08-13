@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useCallback } from "react";
+import { useState, useMemo, useRef, useCallback, useEffect } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -18,32 +18,36 @@ import { File } from "expo-file-system";
 import * as ImagePicker from "expo-image-picker";
 import BottomSheet, { BottomSheetView } from "@gorhom/bottom-sheet";
 import { useGeneratedImageStore } from "../../../store/generated-image-store";
+import { useCapturedUserImageStore } from "../../../store/captured-user-image";
+import { useSelectedCutStore } from "../../../store/use-selected-cut";
 import { API_BASE_URL } from "../../constants/api-config";
 import { convertImageToJpeg } from "../../../utils/convert-image-to-jpeg";
 import { useAuth } from "../../../contexts/auth-context";
 
-type UploadFile = {
-  uri: string;
-  name: string;
-  type: string;
-};
+type SheetTarget = "user" | "inspiration";
 
 export default function AiPage() {
   const router = useRouter();
   const { accessToken } = useAuth();
   const { imageUri } = useLocalSearchParams<{ imageUri: string }>();
+
   const [userImageUri, setUserImageUri] = useState<string | null>(
     imageUri || null,
   );
   const [inspirationImageUri, setInspirationImageUri] = useState<string | null>(
     null,
   );
-  const setGeneratedImage = useGeneratedImageStore(
-    (state) => state.setGeneratedImage,
-  );
-  const clearGeneratedImage = useGeneratedImageStore(
-    (state) => state.clearGeneratedImage,
-  );
+  const [sheetTarget, setSheetTarget] = useState<SheetTarget>("inspiration");
+
+  const setGeneratedImage = useGeneratedImageStore((state) => state.setGeneratedImage);
+  const clearGeneratedImage = useGeneratedImageStore((state) => state.clearGeneratedImage);
+
+  const selectedCut = useSelectedCutStore((s) => s.selectedCut) ?? "";
+  const clearSelectedCut = useSelectedCutStore((s) => s.clearSelectedCut);
+
+  const capturedUserImage = useCapturedUserImageStore((s) => s.capturedUserImage);
+  const clearCapturedUserImage = useCapturedUserImageStore((s) => s.clearCapturedUserImage);
+
   const [promptText, setPromptText] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
@@ -60,6 +64,21 @@ export default function AiPage() {
       return () => clearTimeout(timer);
     }, []),
   );
+
+  useEffect(() => {
+    if (selectedCut) {
+      setInspirationImageUri(selectedCut);
+
+      clearSelectedCut();
+    }
+  }, [selectedCut, clearSelectedCut]);
+
+  useEffect(() => {
+  if (capturedUserImage) {
+    setUserImageUri(capturedUserImage);
+    clearCapturedUserImage();
+  }
+}, [capturedUserImage, clearCapturedUserImage]);
 
   const pickImageFromGallery = async () => {
     const permissionResult =
@@ -83,13 +102,18 @@ export default function AiPage() {
     inputRef.current?.focus();
 
     if (!result.canceled) {
-      setInspirationImageUri(result.assets[0].uri);
+      if (sheetTarget === "user") {
+        setUserImageUri(result.assets[0].uri);
+      } else {
+        setInspirationImageUri(result.assets[0].uri);
+      }
     }
   };
 
-  const handleSnapPress = useCallback((index: number) => {
+  const handleSnapPress = useCallback((index: number, target: SheetTarget) => {
     console.log("Opening bottom sheet");
     Keyboard.dismiss();
+    setSheetTarget(target);
     bottomSheetRef.current?.snapToIndex(index);
   }, []);
 
@@ -104,7 +128,7 @@ export default function AiPage() {
     uploadImages(userImageUri!, inspirationImageUri!, prompt)
       .then((response) => {
         setGeneratedImage(response.generatedImage);
-        router.push("/(protected)/image-displayer");
+        router.push("/(protected)/generated-image-displayer");
       })
       .catch((error: Error & { status?: number }) => {
         console.error("Upload failed:", error);
@@ -195,7 +219,7 @@ export default function AiPage() {
           color="white"
           onPress={() => router.back()}
         />
-        <Text className="text-4xl font-bold text-white">Nextcut AI</Text>
+        <Text className="text-4xl font-bold text-white">Mantis AI</Text>
         <Pressable
           onPress={() => router.push("/(protected)/get-credits")}
           style={{ backgroundColor: "#9DC228" }}
@@ -225,20 +249,24 @@ export default function AiPage() {
               <View className="flex-row items-center justify-center gap-2">
                 <Pressable
                   className="w-[130px] h-[130px] bg-white rounded-full items-center justify-center"
-                  onPress={() => console.log("Pressable pressed")}
+                  onPress={() => handleSnapPress(0, "user")}
                 >
-                  {userImageUri && (
-                    <Image
-                      source={{ uri: userImageUri }}
-                      contentFit="cover"
-                      style={{ width: 128, height: 128, borderRadius: 65 }}
-                    />
-                  )}
+                  <View className="w-[128px] h-[128px] bg-black rounded-full items-center justify-center">
+                    {userImageUri ? (
+                      <Image
+                        source={{ uri: userImageUri }}
+                        contentFit="cover"
+                        style={{ width: 128, height: 128, borderRadius: 65 }}
+                      />
+                    ) : (
+                      <Ionicons name="add" size={50} color="gray" />
+                    )}
+                  </View>
                 </Pressable>
 
                 <Pressable
                   className="w-[130px] h-[130px] bg-white rounded-full items-center justify-center"
-                  onPress={() => handleSnapPress(0)}
+                  onPress={() => handleSnapPress(0, "inspiration")}
                 >
                   <View className="w-[128px] h-[128px] bg-black rounded-full items-center justify-center">
                     {inspirationImageUri ? (
@@ -279,7 +307,7 @@ export default function AiPage() {
       >
         <Pressable
           className="bg-[#2c2c2e] rounded-full p-2 items-center justify-center"
-          onPress={() => handleSnapPress(0)}
+          // onPress={() => handleSnapPress(0)}
         >
           <Ionicons name="add" size={28} color="white" />
         </Pressable>
@@ -327,24 +355,40 @@ export default function AiPage() {
           <View className="flex-row items-center justify-between w-full">
             <View style={{ width: 28 }} />
             <Text className="text-lg font-bold text-white">
-              Pick your inspiration image
+              {sheetTarget === "user"
+                ? "Pick your image"
+                : "Pick your inspiration image"}
             </Text>
             <Pressable onPress={() => bottomSheetRef.current?.close()}>
               <Ionicons name="chevron-down" size={28} color="white" />
             </Pressable>
           </View>
 
-          <Pressable
-            className="bg-[#2c2c2e] rounded-2xl px-4 py-4 flex-row items-center gap-3"
-            onPress={() => {
-              // pick from app
-            }}
-          >
-            <Ionicons name="images-outline" size={22} color="#9DC228" />
-            <Text className="text-white text-base">
-              Pick inspiration from app
-            </Text>
-          </Pressable>
+          {sheetTarget === "user" ? (
+            <Pressable
+              className="bg-[#2c2c2e] rounded-2xl px-4 py-4 flex-row items-center gap-3"
+              onPress={() => {
+                router.push("/(protected)/camera-capture-screen");
+              }}
+            >
+              <Ionicons name="camera-outline" size={22} color="#9DC228" />
+              <Text className="text-white text-base">
+                Capture an image from camera
+              </Text>
+            </Pressable>
+          ) : (
+            <Pressable
+              className="bg-[#2c2c2e] rounded-2xl px-4 py-4 flex-row items-center gap-3"
+              onPress={() => {
+                // pick from app
+              }}
+            >
+              <Ionicons name="images-outline" size={22} color="#9DC228" />
+              <Text className="text-white text-base">
+                Pick inspiration from app
+              </Text>
+            </Pressable>
+          )}
 
           <Pressable
             className="bg-[#2c2c2e] rounded-2xl px-4 py-4 flex-row items-center gap-3"
