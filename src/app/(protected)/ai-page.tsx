@@ -16,15 +16,28 @@ import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { File } from "expo-file-system";
 import * as ImagePicker from "expo-image-picker";
-import BottomSheet, { BottomSheetView } from "@gorhom/bottom-sheet";
+import BottomSheet, {
+  BottomSheetView,
+  BottomSheetFlatList,
+} from "@gorhom/bottom-sheet";
 import { useGeneratedImageStore } from "../../../store/generated-image-store";
 import { useCapturedUserImageStore } from "../../../store/captured-user-image";
 import { useSelectedCutStore } from "../../../store/use-selected-cut";
 import { API_BASE_URL } from "../../constants/api-config";
 import { convertImageToJpeg } from "../../../utils/convert-image-to-jpeg";
 import { useAuth } from "../../../contexts/auth-context";
+import { useQuery } from "@tanstack/react-query";
+import fetchHaircuts from "../../../utils/fetch-haircuts";
 
 type SheetTarget = "user" | "inspiration";
+type SheetView = "options" | "haircuts";
+
+type Haircut = {
+  id: string;
+  hairType: "Short" | "Medium" | "Long";
+  cutName: string;
+  imageUrl: string | null;
+};
 
 export default function AiPage() {
   const router = useRouter();
@@ -34,29 +47,47 @@ export default function AiPage() {
   const [userImageUri, setUserImageUri] = useState<string | null>(
     imageUri || null,
   );
-  const [inspirationImageUri, setInspirationImageUri] = useState<string | null>(
+ const [inspirationImageUri, setInspirationImageUri] = useState<string | null>(
     null,
   );
   const [sheetTarget, setSheetTarget] = useState<SheetTarget>("inspiration");
+  const [sheetView, setSheetView] = useState<SheetView>("options");
 
-  const setGeneratedImage = useGeneratedImageStore((state) => state.setGeneratedImage);
-  const clearGeneratedImage = useGeneratedImageStore((state) => state.clearGeneratedImage);
+  const setGeneratedImage = useGeneratedImageStore(
+    (state) => state.setGeneratedImage,
+  );
+  const clearGeneratedImage = useGeneratedImageStore(
+    (state) => state.clearGeneratedImage,
+  );
 
   const selectedCut = useSelectedCutStore((s) => s.selectedCut) ?? "";
   const clearSelectedCut = useSelectedCutStore((s) => s.clearSelectedCut);
 
-  const capturedUserImage = useCapturedUserImageStore((s) => s.capturedUserImage);
-  const clearCapturedUserImage = useCapturedUserImageStore((s) => s.clearCapturedUserImage);
+  const capturedUserImage = useCapturedUserImageStore(
+    (s) => s.capturedUserImage,
+  );
+  const clearCapturedUserImage = useCapturedUserImageStore(
+    (s) => s.clearCapturedUserImage,
+  );
 
   const [promptText, setPromptText] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
   const bottomSheetRef = useRef<BottomSheet>(null);
   const inputRef = useRef<TextInput>(null);
-  const snapPoints = useMemo(() => ["30%"], []);
+  const snapPoints = useMemo(() => ["30%", "90%"], []);
   const offSet = { closed: -40, opened: -10 };
 
   const hasText = promptText.trim().length > 0;
+
+  const {
+    data: haircuts = [],
+    isLoading: isHaircutsLoading,
+    isError: isHaircutsError,
+  } = useQuery({
+    queryKey: ["haircuts"],
+    queryFn: fetchHaircuts,
+  });
 
   useFocusEffect(
     useCallback(() => {
@@ -68,17 +99,16 @@ export default function AiPage() {
   useEffect(() => {
     if (selectedCut) {
       setInspirationImageUri(selectedCut);
-
       clearSelectedCut();
     }
   }, [selectedCut, clearSelectedCut]);
 
   useEffect(() => {
-  if (capturedUserImage) {
-    setUserImageUri(capturedUserImage);
-    clearCapturedUserImage();
-  }
-}, [capturedUserImage, clearCapturedUserImage]);
+    if (capturedUserImage) {
+      setUserImageUri(capturedUserImage);
+      clearCapturedUserImage();
+    }
+  }, [capturedUserImage, clearCapturedUserImage]);
 
   const pickImageFromGallery = async () => {
     const permissionResult =
@@ -96,9 +126,8 @@ export default function AiPage() {
       mediaTypes: ["images"],
       quality: 1,
     });
-
-    console.log(result);
     bottomSheetRef.current?.close();
+    setSheetView("options");
     inputRef.current?.focus();
 
     if (!result.canceled) {
@@ -110,12 +139,37 @@ export default function AiPage() {
     }
   };
 
-  const handleSnapPress = useCallback((index: number, target: SheetTarget) => {
-    console.log("Opening bottom sheet");
+  const handleSnapPress = useCallback(
+    (index: number, target: SheetTarget) => {
+      Keyboard.dismiss();
+      setSheetTarget(target);
+      setSheetView("options");
+      bottomSheetRef.current?.snapToIndex(index);
+    },
+    [],
+  );
+
+  const openHaircutsPicker = useCallback(() => {
     Keyboard.dismiss();
-    setSheetTarget(target);
-    bottomSheetRef.current?.snapToIndex(index);
+    setSheetView("haircuts");
+    bottomSheetRef.current?.snapToIndex(1);
   }, []);
+
+  const closeSheet = useCallback(() => {
+    bottomSheetRef.current?.close();
+    setSheetView("options");
+  }, []);
+
+  const handleSelectHaircut = useCallback(
+    (haircut: Haircut) => {
+      if (!haircut.imageUrl) return;
+      setInspirationImageUri(haircut.imageUrl);
+      bottomSheetRef.current?.close();
+      setSheetView("options");
+      inputRef.current?.focus();
+    },
+    [],
+  );
 
   const handlePromptSend = (prompt: string) => {
     setPromptText("");
@@ -143,12 +197,10 @@ export default function AiPage() {
         }
 
         if (error.status === 400) {
-          // Bad request — e.g. missing images/prompt caught server-side too
           Alert.alert("Something's missing", error.message);
           return;
         }
 
-        // Generic fallback — 500s, network errors, etc.
         Alert.alert(
           "Upload failed",
           "There was an error uploading the images. Please try again.",
@@ -160,51 +212,103 @@ export default function AiPage() {
   };
 
   const buildFile = (uri: string): File | null => {
+    console.log("Building file from URI:", uri);
     if (!uri) return null;
     return new File(uri);
   };
 
+  // const uploadImages = async (
+  //   uri1: string,
+  //   uri2: string,
+  //   userPrompt: string,
+  // ) => {
+  //   const convertedUri1 = await convertImageToJpeg(uri1);
+  //   const convertedUri2 = await convertImageToJpeg(uri2);
+  //   const userImage = buildFile(convertedUri1);
+  //   const inspirationImage = buildFile(convertedUri2);
+
+  //   if (!userImage || !inspirationImage) {
+  //     throw new Error("Both images are required");
+  //   }
+
+  //   const formData = new FormData();
+  //   formData.append("userImage", userImage, userImage.name);
+  //   formData.append(
+  //     "inspirationImage",
+  //     inspirationImage,
+  //     inspirationImage.name,
+  //   );
+  //   formData.append("userPrompt", userPrompt);
+
+  //   const response = await fetch(`${API_BASE_URL}/api/images/upload-images`, {
+  //     headers: { Authorization: `Bearer ${accessToken}` },
+  //     method: "POST",
+  //     body: formData,
+  //   });
+
+  //   const data = await response.json();
+
+  //   if (!response.ok) {
+  //     const error = new Error(data.error || "Upload failed") as Error & {
+  //       status?: number;
+  //     };
+  //     error.status = response.status;
+  //     throw error;
+  //   }
+
+  //   return data;
+  // };
   const uploadImages = async (
-    uri1: string,
-    uri2: string,
-    userPrompt: string,
-  ) => {
-    const convertedUri1 = await convertImageToJpeg(uri1);
+  uri1: string,
+  uri2: string,
+  userPrompt: string,
+) => {
+  const convertedUri1 = await convertImageToJpeg(uri1);
+  const userImage = buildFile(convertedUri1);
+
+  if (!userImage) {
+    throw new Error("User image is required");
+  }
+
+  const formData = new FormData();
+  formData.append("userImage", userImage, userImage.name);
+  formData.append("userPrompt", userPrompt);
+
+  const isRemoteUrl = /^https?:\/\//i.test(uri2);
+
+  if (isRemoteUrl) {
+    formData.append("inspirationImageUrl", uri2);
+  } else {
     const convertedUri2 = await convertImageToJpeg(uri2);
-    const userImage = buildFile(convertedUri1);
     const inspirationImage = buildFile(convertedUri2);
-
-    if (!userImage || !inspirationImage) {
-      throw new Error("Both images are required");
+    if (!inspirationImage) {
+      throw new Error("Inspiration image is required");
     }
-
-    const formData = new FormData();
-    formData.append("userImage", userImage, userImage.name);
     formData.append(
       "inspirationImage",
       inspirationImage,
       inspirationImage.name,
     );
-    formData.append("userPrompt", userPrompt);
+  }
 
-    const response = await fetch(`${API_BASE_URL}/api/images/upload-images`, {
-      headers: { Authorization: `Bearer ${accessToken}` },
-      method: "POST",
-      body: formData,
-    });
+  const response = await fetch(`${API_BASE_URL}/api/images/upload-images`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+    method: "POST",
+    body: formData,
+  });
 
-    const data = await response.json();
+  const data = await response.json();
 
-    if (!response.ok) {
-      const error = new Error(data.error || "Upload failed") as Error & {
-        status?: number;
-      };
-      error.status = response.status;
-      throw error;
-    }
+  if (!response.ok) {
+    const error = new Error(data.error || "Upload failed") as Error & {
+      status?: number;
+    };
+    error.status = response.status;
+    throw error;
+  }
 
-    return data;
-  };
+  return data;
+};
 
   return (
     <SafeAreaView
@@ -305,10 +409,7 @@ export default function AiPage() {
         }}
         offset={offSet}
       >
-        <Pressable
-          className="bg-[#2c2c2e] rounded-full p-2 items-center justify-center"
-          // onPress={() => handleSnapPress(0)}
-        >
+        <Pressable className="bg-[#2c2c2e] rounded-full p-2 items-center justify-center">
           <Ionicons name="add" size={28} color="white" />
         </Pressable>
 
@@ -334,13 +435,14 @@ export default function AiPage() {
         </Pressable>
       </KeyboardStickyView>
 
-      {/* Inspiration image picker bottom sheet */}
+      {/* Bottom sheet: options view or haircuts browser view */}
       <BottomSheet
         ref={bottomSheetRef}
         snapPoints={snapPoints}
         index={-1}
         enablePanDownToClose
         enableDynamicSizing={false}
+        onClose={() => setSheetView("options")}
         backgroundStyle={{ backgroundColor: "#1c1c1e" }}
         handleIndicatorStyle={{ backgroundColor: "#6b6b6b", width: 40 }}
         style={{
@@ -351,57 +453,122 @@ export default function AiPage() {
           elevation: 10,
         }}
       >
-        <BottomSheetView className="flex-1 px-4 pt-2 gap-4">
-          <View className="flex-row items-center justify-between w-full">
-            <View style={{ width: 28 }} />
-            <Text className="text-lg font-bold text-white">
-              {sheetTarget === "user"
-                ? "Pick your image"
-                : "Pick your inspiration image"}
-            </Text>
-            <Pressable onPress={() => bottomSheetRef.current?.close()}>
-              <Ionicons name="chevron-down" size={28} color="white" />
+        {sheetView === "options" ? (
+          <BottomSheetView className="flex-1 px-4 pt-2 gap-4">
+            <View className="flex-row items-center justify-between w-full">
+              <View style={{ width: 28 }} />
+              <Text className="text-lg font-bold text-white">
+                {sheetTarget === "user"
+                  ? "Pick your image"
+                  : "Pick your inspiration image"}
+              </Text>
+              <Pressable onPress={closeSheet}>
+                <Ionicons name="chevron-down" size={28} color="white" />
+              </Pressable>
+            </View>
+
+            {sheetTarget === "user" ? (
+              <Pressable
+                className="bg-[#2c2c2e] rounded-2xl px-4 py-4 flex-row items-center gap-3"
+                onPress={() => {
+                  router.push("/(protected)/camera-capture-screen");
+                }}
+              >
+                <Ionicons name="camera-outline" size={22} color="#9DC228" />
+                <Text className="text-white text-base">
+                  Capture an image from camera
+                </Text>
+              </Pressable>
+            ) : (
+              <Pressable
+                className="bg-[#2c2c2e] rounded-2xl px-4 py-4 flex-row items-center gap-3"
+                onPress={openHaircutsPicker}
+              >
+                <Ionicons name="images-outline" size={22} color="#9DC228" />
+                <Text className="text-white text-base">
+                  Pick inspiration from app
+                </Text>
+              </Pressable>
+            )}
+
+            <Pressable
+              className="bg-[#2c2c2e] rounded-2xl px-4 py-4 flex-row items-center gap-3"
+              onPress={pickImageFromGallery}
+            >
+              <Ionicons name="folder-outline" size={22} color="#9DC228" />
+              <Text className="text-white text-base">
+                Pick inspiration from gallery
+              </Text>
             </Pressable>
+          </BottomSheetView>
+        ) : (
+          <View className="flex-1 px-4 pt-2">
+            <View className="flex-row items-center justify-between w-full mb-4">
+              <Pressable onPress={() => handleSnapPress(0, "inspiration")}>
+                <Ionicons name="chevron-back" size={26} color="white" />
+              </Pressable>
+              <Text className="text-lg font-bold text-white">
+                Choose a haircut
+              </Text>
+              <Pressable onPress={closeSheet}>
+                <Ionicons name="chevron-down" size={28} color="white" />
+              </Pressable>
+            </View>
+
+            {isHaircutsLoading ? (
+              <View className="flex-1 items-center justify-center gap-3 pb-20">
+                <ActivityIndicator size="large" color="#9DC228" />
+                <Text className="text-white">Loading haircuts...</Text>
+              </View>
+            ) : isHaircutsError ? (
+              <View className="flex-1 items-center justify-center pb-20">
+                <Text className="text-white">
+                  Couldn't load haircuts. Try again later.
+                </Text>
+              </View>
+            ) : (
+              <BottomSheetFlatList
+                data={haircuts}
+                keyExtractor={(item: Haircut) => item.id}
+                contentContainerStyle={{ paddingBottom: 32 }}
+                renderItem={({ item }: { item: Haircut }) => (
+                  <Pressable
+                    onPress={() => handleSelectHaircut(item)}
+                    className="flex-row items-center gap-3 py-2 px-2 rounded-xl mb-2 bg-[#2c2c2e]"
+                  >
+                    <Image
+                      source={
+                        item.imageUrl
+                          ? { uri: item.imageUrl }
+                          : require("../../../assets/images/app-images/placeholder-image.jpeg")
+                      }
+                      contentFit="cover"
+                      style={{ width: 56, height: 56, borderRadius: 10 }}
+                    />
+                    <View className="flex-1">
+                      <Text className="text-white text-base font-semibold">
+                        {item.cutName}
+                      </Text>
+                      <Text className="text-gray-500 text-sm">
+                        {item.hairType} hair
+                      </Text>
+                    </View>
+                    <Ionicons
+                      name="chevron-forward"
+                      size={20}
+                      color="#6b6b6b"
+                    />
+                  </Pressable>
+                )}
+                ListEmptyComponent={
+                  <Text className="text-center text-zinc-500 mt-10">
+                    No haircuts found.
+                  </Text>
+                }
+              />
+            )}
           </View>
-
-          {sheetTarget === "user" ? (
-            <Pressable
-              className="bg-[#2c2c2e] rounded-2xl px-4 py-4 flex-row items-center gap-3"
-              onPress={() => {
-                router.push("/(protected)/camera-capture-screen");
-              }}
-            >
-              <Ionicons name="camera-outline" size={22} color="#9DC228" />
-              <Text className="text-white text-base">
-                Capture an image from camera
-              </Text>
-            </Pressable>
-          ) : (
-            <Pressable
-              className="bg-[#2c2c2e] rounded-2xl px-4 py-4 flex-row items-center gap-3"
-              onPress={() => {
-                // pick from app
-              }}
-            >
-              <Ionicons name="images-outline" size={22} color="#9DC228" />
-              <Text className="text-white text-base">
-                Pick inspiration from app
-              </Text>
-            </Pressable>
-          )}
-
-          <Pressable
-            className="bg-[#2c2c2e] rounded-2xl px-4 py-4 flex-row items-center gap-3"
-            onPress={() => {
-              pickImageFromGallery();
-            }}
-          >
-            <Ionicons name="folder-outline" size={22} color="#9DC228" />
-            <Text className="text-white text-base">
-              Pick inspiration from gallery
-            </Text>
-          </Pressable>
-        </BottomSheetView>
+        )}
       </BottomSheet>
     </SafeAreaView>
   );

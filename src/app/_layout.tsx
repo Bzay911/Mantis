@@ -1,8 +1,10 @@
 import "../global.css";
 import { DarkTheme, DefaultTheme, ThemeProvider, Stack } from "expo-router";
-import { useColorScheme } from "react-native";
+import { Platform, useColorScheme } from "react-native";
 import { AnimatedSplashOverlay } from "@/components/animated-icon";
 import {useAuth, AuthProvider} from "../../contexts/auth-context";
+import Purchases from "react-native-purchases";
+import { useEffect } from "react";
 
   function RootLayoutWithAuth() {
     const {accessToken, loading} = useAuth();
@@ -26,6 +28,11 @@ import {useAuth, AuthProvider} from "../../contexts/auth-context";
 export default function TabLayout() {
   const colorScheme = useColorScheme();
   
+    useEffect(() => {
+    if (Platform.OS === 'ios') {
+      Purchases.configure({ apiKey: process.env.EXPO_PUBLIC_REVENUE_CAT_API_KEY || '' });
+    }
+  }, []);
 
   return (
     <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>

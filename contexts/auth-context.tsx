@@ -6,6 +6,7 @@ import {
   useEffect,
   ReactNode,
 } from "react";
+import Purchases from "react-native-purchases";
 import { API_BASE_URL } from "../src/constants/api-config";
 
 interface AuthContextType {
@@ -40,12 +41,18 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const login = async (
     accessToken: string,
     refreshToken: string,
-    userDate: User,
+    userData: User,
   ) => {
     setAccessToken(accessToken);
-    setUser(userDate);
+    setUser(userData);
     await SecureStore.setItemAsync("accessToken", accessToken); // using securestore here than async storage (stores plain text) for better security
     await SecureStore.setItemAsync("refreshToken", refreshToken);
+
+    try{
+      await Purchases.logIn(userData.id);
+    } catch (error) {
+      console.error("Error logging in with RevenueCat:", error);
+    }
   };
 
   const logout = async () => {
@@ -53,6 +60,12 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     setUser(null);
     await SecureStore.deleteItemAsync("accessToken");
     await SecureStore.deleteItemAsync("refreshToken");
+
+        try {
+      await Purchases.logOut();
+    } catch (e) {
+      console.error("RevenueCat logOut failed", e);
+    }
   };
 
   useEffect(() => {
@@ -114,6 +127,12 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           const { user } = await response.json();
           setUser(user);
           setAccessToken(currentAccessToken);
+
+          try{
+            await Purchases.logIn(user.id);
+          } catch (error) {
+            console.error("Error logging in with RevenueCat:", error);
+          }
         }
       } catch (error) {
         console.error("Error restoring session:", error);

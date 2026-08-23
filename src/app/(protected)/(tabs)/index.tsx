@@ -4,7 +4,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
-import { API_BASE_URL } from "../../../constants/api-config";
+import  fetchHaircuts  from "../../../../utils/fetch-haircuts";
 import { Image } from "expo-image";
 
 type Haircut = {
@@ -12,12 +12,6 @@ type Haircut = {
   hairType: "Short" | "Medium" | "Long";
   cutName: string;
   imageUrl: string | null;
-};
-
-const fetchHaircuts = async (): Promise<Haircut[]> => {
-  const response = await fetch(`${API_BASE_URL}/api/haircuts/get-all-haircuts`);
-  if (!response.ok) throw new Error("Failed to fetch haircuts");
-  return response.json();
 };
 
 // random-ish icon assignment per hairType — swap these out anytime
