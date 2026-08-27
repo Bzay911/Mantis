@@ -8,6 +8,7 @@ import {
 } from "react";
 import Purchases from "react-native-purchases";
 import { API_BASE_URL } from "../src/constants/api-config";
+import { checkRevenueCatUser } from "../utils/check-revenuecat-user";
 
 interface AuthContextType {
   accessToken: string | null;
@@ -25,6 +26,8 @@ interface User {
   id: string;
   displayName: string;
   email: string;
+  credits: number;
+  createdAt: Date | null;
 }
 
 interface AuthProviderProps {
@@ -47,12 +50,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     setUser(userData);
     await SecureStore.setItemAsync("accessToken", accessToken); // using securestore here than async storage (stores plain text) for better security
     await SecureStore.setItemAsync("refreshToken", refreshToken);
-
-    try{
-      await Purchases.logIn(userData.id);
-    } catch (error) {
-      console.error("Error logging in with RevenueCat:", error);
-    }
+    await checkRevenueCatUser(userData.id);
   };
 
   const logout = async () => {
@@ -61,7 +59,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     await SecureStore.deleteItemAsync("accessToken");
     await SecureStore.deleteItemAsync("refreshToken");
 
-        try {
+    try {
       await Purchases.logOut();
     } catch (e) {
       console.error("RevenueCat logOut failed", e);
@@ -72,7 +70,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     const restoreSession = async () => {
       try {
         const storedAccessToken = await SecureStore.getItemAsync("accessToken");
-        const storedRefreshToken = await SecureStore.getItemAsync("refreshToken");
+        const storedRefreshToken =
+          await SecureStore.getItemAsync("refreshToken");
 
         if (!storedAccessToken) {
           setLoading(false);
@@ -86,7 +85,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         });
 
         // tracking the current access token
-        let currentAccessToken = storedAccessToken; 
+        let currentAccessToken = storedAccessToken;
 
         if (!response.ok) {
           const refreshResponse = await fetch(
@@ -114,7 +113,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           await SecureStore.setItemAsync("accessToken", newAccessToken);
           await SecureStore.setItemAsync("refreshToken", newRefreshToken);
 
-           currentAccessToken = newAccessToken;
+          currentAccessToken = newAccessToken;
 
           response = await fetch(`${API_BASE_URL}/api/auth/validate-token`, {
             headers: {
@@ -127,12 +126,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           const { user } = await response.json();
           setUser(user);
           setAccessToken(currentAccessToken);
-
-          try{
-            await Purchases.logIn(user.id);
-          } catch (error) {
-            console.error("Error logging in with RevenueCat:", error);
-          }
+          await checkRevenueCatUser(user.id);
         }
       } catch (error) {
         console.error("Error restoring session:", error);
@@ -146,15 +140,15 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
   return (
     <AuthContext.Provider value={{ accessToken, user, login, logout, loading }}>
-        {children}
+      {children}
     </AuthContext.Provider>
-  )
+  );
 };
 
-export const useAuth = () : AuthContextType => {
-    const context = useContext(AuthContext);
-    if (!context) {
-        throw new Error("useAuth must be used within an AuthProvider");
-    }
-    return context;
-}
+export const useAuth = (): AuthContextType => {
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error("useAuth must be used within an AuthProvider");
+  }
+  return context;
+};

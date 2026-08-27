@@ -181,6 +181,8 @@ export default function AiPage() {
 
     uploadImages(userImageUri!, inspirationImageUri!, prompt)
       .then((response) => {
+        setUserImageUri(null);
+        setInspirationImageUri(null);
         setGeneratedImage(response.generatedImage);
         router.push("/(protected)/generated-image-displayer");
       })

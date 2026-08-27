@@ -93,13 +93,13 @@ export default function ProtectedIndex() {
           </Pressable>
         </View>
 
-        <Text className="mt-6 text-xl font-semibold text-white p-2">
+        <Text className="mt-2 text-xl font-semibold text-white p-2">
           Choose your style
         </Text>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
-          className="mt-4 p-2"
+          className=" p-2"
         >
           {chips.map((type) => {
             const isActive = selectedType === type;
@@ -132,7 +132,7 @@ export default function ProtectedIndex() {
 
         {Object.entries(grouped).map(([hairType, items]) => (
           <View key={hairType}>
-            <Text className="mt-6 text-xl font-semibold text-white p-2">
+            <Text className="mt-4 text-xl font-semibold text-white p-2">
               Hairstyle Options For {hairType} Hair
             </Text>
             <ScrollView
