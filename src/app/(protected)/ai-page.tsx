@@ -1,33 +1,31 @@
-import { useState, useMemo, useRef, useCallback, useEffect } from "react";
+import { Ionicons } from "@expo/vector-icons";
+import BottomSheet, {
+  BottomSheetFlatList,
+  BottomSheetView,
+} from "@gorhom/bottom-sheet";
+import { useQuery } from "@tanstack/react-query";
+import { File } from "expo-file-system";
+import { Image } from "expo-image";
+import * as ImagePicker from "expo-image-picker";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
+  Keyboard,
   Pressable,
+  ScrollView,
   Text,
   View,
-  TextInput,
-  ScrollView,
-  Keyboard,
-  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { KeyboardStickyView } from "react-native-keyboard-controller";
-import { useRouter, useFocusEffect, useLocalSearchParams } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
-import { Image } from "expo-image";
-import { File } from "expo-file-system";
-import * as ImagePicker from "expo-image-picker";
-import BottomSheet, {
-  BottomSheetView,
-  BottomSheetFlatList,
-} from "@gorhom/bottom-sheet";
-import { useGeneratedImageStore } from "../../../store/generated-image-store";
-import { useCapturedUserImageStore } from "../../../store/captured-user-image";
-import { useSelectedCutStore } from "../../../store/use-selected-cut";
-import { API_BASE_URL } from "../../constants/api-config";
-import { convertImageToJpeg } from "../../../utils/convert-image-to-jpeg";
 import { useAuth } from "../../../contexts/auth-context";
-import { useQuery } from "@tanstack/react-query";
+import { useCapturedUserImageStore } from "../../../store/captured-user-image";
+import { useGeneratedImageStore } from "../../../store/generated-image-store";
+import { useSelectedCutStore } from "../../../store/use-selected-cut";
+import { convertImageToJpeg } from "../../../utils/convert-image-to-jpeg";
 import fetchHaircuts from "../../../utils/fetch-haircuts";
+import { API_BASE_URL } from "../../constants/api-config";
 
 type SheetTarget = "user" | "inspiration";
 type SheetView = "options" | "haircuts";
@@ -47,7 +45,7 @@ export default function AiPage() {
   const [userImageUri, setUserImageUri] = useState<string | null>(
     imageUri || null,
   );
- const [inspirationImageUri, setInspirationImageUri] = useState<string | null>(
+  const [inspirationImageUri, setInspirationImageUri] = useState<string | null>(
     null,
   );
   const [sheetTarget, setSheetTarget] = useState<SheetTarget>("inspiration");
@@ -70,15 +68,12 @@ export default function AiPage() {
     (s) => s.clearCapturedUserImage,
   );
 
-  const [promptText, setPromptText] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
   const bottomSheetRef = useRef<BottomSheet>(null);
-  const inputRef = useRef<TextInput>(null);
   const snapPoints = useMemo(() => ["30%", "90%"], []);
-  const offSet = { closed: -40, opened: -10 };
 
-  const hasText = promptText.trim().length > 0;
+  const canGenerate = Boolean(userImageUri && inspirationImageUri);
 
   const {
     data: haircuts = [],
@@ -88,13 +83,6 @@ export default function AiPage() {
     queryKey: ["haircuts"],
     queryFn: fetchHaircuts,
   });
-
-  useFocusEffect(
-    useCallback(() => {
-      const timer = setTimeout(() => inputRef.current?.focus(), 100);
-      return () => clearTimeout(timer);
-    }, []),
-  );
 
   useEffect(() => {
     if (selectedCut) {
@@ -128,7 +116,6 @@ export default function AiPage() {
     });
     bottomSheetRef.current?.close();
     setSheetView("options");
-    inputRef.current?.focus();
 
     if (!result.canceled) {
       if (sheetTarget === "user") {
@@ -139,15 +126,12 @@ export default function AiPage() {
     }
   };
 
-  const handleSnapPress = useCallback(
-    (index: number, target: SheetTarget) => {
-      Keyboard.dismiss();
-      setSheetTarget(target);
-      setSheetView("options");
-      bottomSheetRef.current?.snapToIndex(index);
-    },
-    [],
-  );
+  const handleSnapPress = useCallback((index: number, target: SheetTarget) => {
+    Keyboard.dismiss();
+    setSheetTarget(target);
+    setSheetView("options");
+    bottomSheetRef.current?.snapToIndex(index);
+  }, []);
 
   const openHaircutsPicker = useCallback(() => {
     Keyboard.dismiss();
@@ -160,26 +144,18 @@ export default function AiPage() {
     setSheetView("options");
   }, []);
 
-  const handleSelectHaircut = useCallback(
-    (haircut: Haircut) => {
-      if (!haircut.imageUrl) return;
-      setInspirationImageUri(haircut.imageUrl);
-      bottomSheetRef.current?.close();
-      setSheetView("options");
-      inputRef.current?.focus();
-    },
-    [],
-  );
+  const handleSelectHaircut = useCallback((haircut: Haircut) => {
+    if (!haircut.imageUrl) return;
+    setInspirationImageUri(haircut.imageUrl);
+    bottomSheetRef.current?.close();
+    setSheetView("options");
+  }, []);
 
-  const handlePromptSend = (prompt: string) => {
-    setPromptText("");
-    Keyboard.dismiss();
-    inputRef.current?.blur();
-
+  const handleGenerate = () => {
     clearGeneratedImage();
     setIsLoading(true);
 
-    uploadImages(userImageUri!, inspirationImageUri!, prompt)
+    uploadImages(userImageUri!, inspirationImageUri!)
       .then((response) => {
         setUserImageUri(null);
         setInspirationImageUri(null);
@@ -219,98 +195,55 @@ export default function AiPage() {
     return new File(uri);
   };
 
-  // const uploadImages = async (
-  //   uri1: string,
-  //   uri2: string,
-  //   userPrompt: string,
-  // ) => {
-  //   const convertedUri1 = await convertImageToJpeg(uri1);
-  //   const convertedUri2 = await convertImageToJpeg(uri2);
-  //   const userImage = buildFile(convertedUri1);
-  //   const inspirationImage = buildFile(convertedUri2);
-
-  //   if (!userImage || !inspirationImage) {
-  //     throw new Error("Both images are required");
-  //   }
-
-  //   const formData = new FormData();
-  //   formData.append("userImage", userImage, userImage.name);
-  //   formData.append(
-  //     "inspirationImage",
-  //     inspirationImage,
-  //     inspirationImage.name,
-  //   );
-  //   formData.append("userPrompt", userPrompt);
-
-  //   const response = await fetch(`${API_BASE_URL}/api/images/upload-images`, {
-  //     headers: { Authorization: `Bearer ${accessToken}` },
-  //     method: "POST",
-  //     body: formData,
-  //   });
-
-  //   const data = await response.json();
-
-  //   if (!response.ok) {
-  //     const error = new Error(data.error || "Upload failed") as Error & {
-  //       status?: number;
-  //     };
-  //     error.status = response.status;
-  //     throw error;
-  //   }
-
-  //   return data;
-  // };
   const uploadImages = async (
-  uri1: string,
-  uri2: string,
-  userPrompt: string,
-) => {
-  const convertedUri1 = await convertImageToJpeg(uri1);
-  const userImage = buildFile(convertedUri1);
+    uri1: string,
+    uri2: string,
+  ) => {
+    const convertedUri1 = await convertImageToJpeg(uri1);
+    const userImage = buildFile(convertedUri1);
 
-  if (!userImage) {
-    throw new Error("User image is required");
-  }
-
-  const formData = new FormData();
-  formData.append("userImage", userImage, userImage.name);
-  formData.append("userPrompt", userPrompt);
-
-  const isRemoteUrl = /^https?:\/\//i.test(uri2);
-
-  if (isRemoteUrl) {
-    formData.append("inspirationImageUrl", uri2);
-  } else {
-    const convertedUri2 = await convertImageToJpeg(uri2);
-    const inspirationImage = buildFile(convertedUri2);
-    if (!inspirationImage) {
-      throw new Error("Inspiration image is required");
+    if (!userImage) {
+      throw new Error("User image is required");
     }
-    formData.append(
-      "inspirationImage",
-      inspirationImage,
-      inspirationImage.name,
-    );
-  }
 
-  const response = await fetch(`${API_BASE_URL}/api/images/upload-images`, {
-    headers: { Authorization: `Bearer ${accessToken}` },
-    method: "POST",
-    body: formData,
-  });
+    const formData = new FormData();
+    formData.append("userImage", userImage, userImage.name);
 
-  const data = await response.json();
+    const isRemoteUrl = /^https?:\/\//i.test(uri2);
 
-  if (!response.ok) {
-    const error = new Error(data.error || "Upload failed") as Error & {
-      status?: number;
-    };
-    error.status = response.status;
-    throw error;
-  }
+    if (isRemoteUrl) {
+      formData.append("inspirationImageUrl", uri2);
+    } else {
+      const convertedUri2 = await convertImageToJpeg(uri2);
+      const inspirationImage = buildFile(convertedUri2);
+      if (!inspirationImage) {
+        throw new Error("Inspiration image is required");
+      }
+      formData.append(
+        "inspirationImage",
+        inspirationImage,
+        inspirationImage.name,
+      );
+    }
 
-  return data;
-};
+    const response = await fetch(`${API_BASE_URL}/api/images/upload-images`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      method: "POST",
+      body: formData,
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      const error = new Error(data.error || "Upload failed") as Error & {
+        status?: number;
+      };
+      error.status = response.status;
+      throw error;
+    }
+
+    return data;
+  };
 
   return (
     <SafeAreaView
@@ -325,13 +258,17 @@ export default function AiPage() {
           color="white"
           onPress={() => router.back()}
         />
-        <Text className="text-4xl font-bold text-white">Mantis AI</Text>
+        <Text className="text-4xl font-fraunces-semibold text-white">
+          Mantis AI
+        </Text>
         <Pressable
           onPress={() => router.push("/(protected)/get-credits")}
           style={{ backgroundColor: "#9DC228" }}
           className="items-center justify-center rounded-full px-4 py-3"
         >
-          <Text className="text-black text-lg font-bold">Get Credits</Text>
+          <Text className="text-black text-lg font-jakarta-semibold">
+            Get Credits
+          </Text>
         </Pressable>
       </View>
 
@@ -340,7 +277,9 @@ export default function AiPage() {
         {isLoading ? (
           <View className="flex-1 items-center justify-center gap-4">
             <ActivityIndicator size="large" color="#9DC228" />
-            <Text className="text-white text-lg">Generating your cut...</Text>
+            <Text className="text-white text-lg font-jakarta">
+              Generating your cut...
+            </Text>
           </View>
         ) : (
           <ScrollView
@@ -389,7 +328,7 @@ export default function AiPage() {
               </View>
 
               <View className="mt-6">
-                <Text className="text-gray-500 text-center">
+                <Text className="text-gray-500 text-center font-jakarta">
                   Add an inspiration image to help the AI understand the style
                   you want for your cut. Press the plus button to select an
                   inspiration image.
@@ -400,42 +339,23 @@ export default function AiPage() {
         )}
       </View>
 
-      {/* Prompt input bar */}
-      <KeyboardStickyView
-        style={{
-          flexDirection: "row",
-          alignItems: "center",
-          gap: 8,
-          paddingHorizontal: 16,
-          paddingVertical: 16,
-        }}
-        offset={offSet}
+      {/* Generate button */}
+      <Pressable
+        disabled={!canGenerate || isLoading}
+        onPress={() => handleGenerate()}
+        className={`mx-4 mb-4 flex-row items-center justify-center gap-2 rounded-full px-6 py-4 ${canGenerate ? "bg-[#9DC228]" : "bg-[#2c2c2e]"}`}
       >
-        <Pressable className="bg-[#2c2c2e] rounded-full p-2 items-center justify-center">
-          <Ionicons name="add" size={28} color="white" />
-        </Pressable>
-
-        <TextInput
-          ref={inputRef}
-          value={promptText}
-          onChangeText={setPromptText}
-          placeholder="Describe your change..."
-          placeholderTextColor="#8e8e93"
-          keyboardAppearance="dark"
-          className="flex-1 rounded-xl border border-[#2c2c2e] bg-[#1c1c1e] px-4 py-4 text-white"
+        <Ionicons
+          name="sparkles"
+          size={18}
+          color={canGenerate ? "black" : "#6b6b6b"}
         />
-
-        <Pressable
-          onPress={() => handlePromptSend(promptText)}
-          className={`${hasText ? "bg-[#9DC228]" : "bg-[#2c2c2e]"} rounded-full p-2 items-center justify-center`}
+        <Text
+          className={`text-lg font-jakarta-semibold ${canGenerate ? "text-black" : "text-[#6b6b6b]"}`}
         >
-          <Ionicons
-            name="arrow-up"
-            size={28}
-            color={hasText ? "black" : "gray"}
-          />
-        </Pressable>
-      </KeyboardStickyView>
+          Generate
+        </Text>
+      </Pressable>
 
       {/* Bottom sheet: options view or haircuts browser view */}
       <BottomSheet
@@ -459,7 +379,7 @@ export default function AiPage() {
           <BottomSheetView className="flex-1 px-4 pt-2 gap-4">
             <View className="flex-row items-center justify-between w-full">
               <View style={{ width: 28 }} />
-              <Text className="text-lg font-bold text-white">
+              <Text className="text-lg font-jakarta-semibold text-white">
                 {sheetTarget === "user"
                   ? "Pick your image"
                   : "Pick your inspiration image"}
@@ -477,7 +397,7 @@ export default function AiPage() {
                 }}
               >
                 <Ionicons name="camera-outline" size={22} color="#9DC228" />
-                <Text className="text-white text-base">
+                <Text className="text-white text-base font-jakarta">
                   Capture an image from camera
                 </Text>
               </Pressable>
@@ -487,7 +407,7 @@ export default function AiPage() {
                 onPress={openHaircutsPicker}
               >
                 <Ionicons name="images-outline" size={22} color="#9DC228" />
-                <Text className="text-white text-base">
+                <Text className="text-white text-base font-jakarta">
                   Pick inspiration from app
                 </Text>
               </Pressable>
@@ -498,7 +418,7 @@ export default function AiPage() {
               onPress={pickImageFromGallery}
             >
               <Ionicons name="folder-outline" size={22} color="#9DC228" />
-              <Text className="text-white text-base">
+              <Text className="text-white text-base font-jakarta">
                 Pick inspiration from gallery
               </Text>
             </Pressable>
@@ -509,7 +429,7 @@ export default function AiPage() {
               <Pressable onPress={() => handleSnapPress(0, "inspiration")}>
                 <Ionicons name="chevron-back" size={26} color="white" />
               </Pressable>
-              <Text className="text-lg font-bold text-white">
+              <Text className="text-lg font-jakarta-semibold text-white">
                 Choose a haircut
               </Text>
               <Pressable onPress={closeSheet}>
@@ -520,11 +440,13 @@ export default function AiPage() {
             {isHaircutsLoading ? (
               <View className="flex-1 items-center justify-center gap-3 pb-20">
                 <ActivityIndicator size="large" color="#9DC228" />
-                <Text className="text-white">Loading haircuts...</Text>
+                <Text className="text-white font-jakarta">
+                  Loading haircuts...
+                </Text>
               </View>
             ) : isHaircutsError ? (
               <View className="flex-1 items-center justify-center pb-20">
-                <Text className="text-white">
+                <Text className="text-white font-jakarta">
                   Couldn't load haircuts. Try again later.
                 </Text>
               </View>
@@ -548,10 +470,10 @@ export default function AiPage() {
                       style={{ width: 56, height: 56, borderRadius: 10 }}
                     />
                     <View className="flex-1">
-                      <Text className="text-white text-base font-semibold">
+                      <Text className="text-white text-base font-jakarta-semibold">
                         {item.cutName}
                       </Text>
-                      <Text className="text-gray-500 text-sm">
+                      <Text className="text-gray-500 text-sm font-jakarta">
                         {item.hairType} hair
                       </Text>
                     </View>
@@ -563,7 +485,7 @@ export default function AiPage() {
                   </Pressable>
                 )}
                 ListEmptyComponent={
-                  <Text className="text-center text-zinc-500 mt-10">
+                  <Text className="text-center text-zinc-500 mt-10 font-jakarta">
                     No haircuts found.
                   </Text>
                 }

@@ -26,7 +26,7 @@ export function CameraCapture({ onProceed, onClose }: Props) {
    if (!permission.granted) {
      return (
        <View className="flex-1 justify-center items-center">
-         <Text>Camera access is required to use this feature.</Text>
+         <Text className="text-white font-jakarta">Camera access is required to use this feature.</Text>
          <Button title="Grant Permission" onPress={requestPermission} />
        </View>
      );
@@ -88,8 +88,8 @@ export function CameraCapture({ onProceed, onClose }: Props) {
              onPress={() => setUri(null)}
              className="bg-red-500 py-4 px-6 rounded-full flex-row items-center gap-2"
            >
-             <Ionicons name="close" size={28} color="black" />
-             <Text className="text-black text-xl">Retake</Text>
+             <Ionicons name="close" size={22} color="black" />
+             <Text className="text-black text-xl font-jakarta">Retake</Text>
            </Pressable>
  
            <Pressable
@@ -99,8 +99,8 @@ export function CameraCapture({ onProceed, onClose }: Props) {
              }}
              className="bg-[#9DC228] py-4 px-6 rounded-full flex-row items-center gap-2"
            >
-             <Ionicons name="checkmark" size={28} color="black" />
-             <Text className="text-black text-xl">Proceed</Text>
+             <Ionicons name="checkmark" size={22} color="black" />
+             <Text className="text-black text-xl font-jakarta">Proceed</Text>
            </Pressable>
          </View>
        </View>

@@ -42,7 +42,7 @@ export default function ImageDisplayer() {
             router.back();
           }}
         />
-        <Text className="text-3xl font-bold text-white">{cutName}</Text>
+        <Text className="text-3xl font-fraunces-semibold text-white">{cutName}</Text>
         <Pressable
           style={{ backgroundColor: "#9DC228" }}
           className="items-center justify-center rounded-full px-4 py-3"
@@ -51,7 +51,7 @@ export default function ImageDisplayer() {
             router.replace("/(protected)/ai-page");
           }}
         >
-          <Text className="text-black text-lg font-bold">Use Image</Text>
+          <Text className="text-black text-lg font-jakarta-semibold">Use Image</Text>
         </Pressable>
       </View>
 

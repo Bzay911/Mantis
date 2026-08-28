@@ -4,7 +4,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
-import  fetchHaircuts  from "../../../../utils/fetch-haircuts";
+import fetchHaircuts from "../../../../utils/fetch-haircuts";
 import { Image } from "expo-image";
 
 type Haircut = {
@@ -14,7 +14,6 @@ type Haircut = {
   imageUrl: string | null;
 };
 
-// random-ish icon assignment per hairType — swap these out anytime
 const HAIR_TYPE_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
   All: "cut-outline",
   Short: "flash-outline",
@@ -37,19 +36,16 @@ export default function ProtectedIndex() {
     queryFn: fetchHaircuts,
   });
 
-  // build chip list dynamically: "All" + unique hairTypes from the data
   const chips = useMemo(() => {
     const uniqueTypes = Array.from(new Set(haircuts.map((h) => h.hairType)));
     return ["All", ...uniqueTypes];
   }, [haircuts]);
 
-  // filter based on selected chip
   const filtered = useMemo(() => {
     if (selectedType === "All") return haircuts;
     return haircuts.filter((h) => h.hairType === selectedType);
   }, [haircuts, selectedType]);
 
-  // group filtered results by hairType for sectioned display
   const grouped = useMemo(() => {
     return filtered.reduce<Record<string, Haircut[]>>((acc, item) => {
       (acc[item.hairType] ??= []).push(item);
@@ -57,11 +53,10 @@ export default function ProtectedIndex() {
     }, {});
   }, [filtered]);
 
-
   if (isLoading) {
     return (
       <SafeAreaView className="flex-1 items-center justify-center bg-black">
-        <Text className="text-white">Loading...</Text>
+        <Text className="text-white font-lora">Loading...</Text>
       </SafeAreaView>
     );
   }
@@ -69,7 +64,7 @@ export default function ProtectedIndex() {
   if (isError) {
     return (
       <SafeAreaView className="flex-1 items-center justify-center bg-black">
-        <Text className="text-white">
+        <Text className="text-white font-roboto-bold">
           Something went wrong. Pull to refresh.
         </Text>
       </SafeAreaView>
@@ -83,17 +78,17 @@ export default function ProtectedIndex() {
         contentContainerStyle={{ paddingBottom: 32 }}
       >
         <View className="flex-row items-center justify-between gap-4 p-2">
-          <Text className="text-4xl font-bold text-white">Mantis</Text>
+          <Text className="text-4xl text-white font-fraunces-semibold">Mantis AI</Text>
           <Pressable
             onPress={() => router.push("/(protected)/get-credits")}
             style={{ backgroundColor: "#9DC228" }}
             className="items-center justify-center rounded-full px-6 py-4"
           >
-            <Text className="text-black text-lg font-bold">Get Credits</Text>
+            <Text className="text-black text-lg font-jakarta-semibold">Get Credits</Text>
           </Pressable>
         </View>
 
-        <Text className="mt-2 text-xl font-semibold text-white p-2">
+        <Text className="mt-2 text-xl text-white p-2 font-jakarta-semibold">
           Choose your style
         </Text>
         <ScrollView
@@ -120,7 +115,7 @@ export default function ProtectedIndex() {
                   />
                 </View>
                 <Text
-                  className="text-center text-sm"
+                  className="text-center text-sm font-jakarta"
                   style={{ color: isActive ? "#9DC228" : "white" }}
                 >
                   {type}
@@ -132,7 +127,7 @@ export default function ProtectedIndex() {
 
         {Object.entries(grouped).map(([hairType, items]) => (
           <View key={hairType}>
-            <Text className="mt-4 text-xl font-semibold text-white p-2">
+            <Text className="mt-4 text-xl text-white p-2 font-jakarta-semibold">
               Hairstyle Options For {hairType} Hair
             </Text>
             <ScrollView
@@ -160,7 +155,7 @@ export default function ProtectedIndex() {
                     style={{ height: 280, width: 200 }}
                     contentFit="cover"
                   />
-                  <Text className="absolute bottom-0 px-3 py-3 text-sm font-semibold text-white">
+                  <Text className="absolute bottom-0 px-3 py-3 text-sm text-white font-jakarta-semibold">
                     {item.cutName}
                   </Text>
                 </Pressable>
@@ -170,7 +165,7 @@ export default function ProtectedIndex() {
         ))}
 
         {filtered.length === 0 && (
-          <Text className="mt-10 text-center text-zinc-500">
+          <Text className="mt-10 text-center text-zinc-500 font-jakarta">
             No styles found for this filter.
           </Text>
         )}

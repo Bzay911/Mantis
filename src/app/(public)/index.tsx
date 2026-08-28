@@ -107,11 +107,11 @@ export default function SignIn() {
 
         <View className="gap-6 px-6 pb-4">
           <View className="gap-2">
-            <Text className="text-[34px] font-bold leading-tight text-white">
+            <Text className="text-[34px] font-fraunces-semibold leading-tight text-white">
               Welcome back
             </Text>
-            <Text className="text-base text-zinc-300">
-              Sign in to your MyNextCut account
+            <Text className="text-base text-zinc-300 font-jakarta">
+              Sign in to your Mantis AI account
             </Text>
           </View>
 
@@ -124,21 +124,21 @@ export default function SignIn() {
             {googleLoading ? (
               <>
                 <ActivityIndicator color="#1a1a1a" />
-                <Text className="text-base font-semibold text-zinc-900">
+                <Text className="text-base font-jakarta-semibold text-zinc-900">
                   Signing in...
                 </Text>
               </>
             ) : (
               <>
                 <FontAwesome name="google" size={18} color="#1a1a1a" />
-                <Text className="text-base font-semibold text-zinc-900">
+                <Text className="text-base font-jakarta-semibold text-zinc-900">
                   Sign in with Google
                 </Text>
               </>
             )}
           </Pressable>
 
-          <Text className="text-center text-sm text-white">
+          <Text className="text-center text-sm font-jakarta text-white">
             By continuing, you agree to our {""}
             <Text
               className="font-semibold text-white underline"
