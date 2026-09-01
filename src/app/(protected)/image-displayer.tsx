@@ -15,7 +15,7 @@ export default function ImageDisplayer() {
   const setSelectedCut = useSelectedCutStore((s) => s.setSelectedCut);
   const { imageUrl, cutName } = useLocalSearchParams() as {
     imageUrl: string;
-    cutName: string;
+    cutName?: string;
   };
 
   const { width, height } = useWindowDimensions();
@@ -42,7 +42,9 @@ export default function ImageDisplayer() {
             router.back();
           }}
         />
-        <Text className="text-3xl font-fraunces-semibold text-white">{cutName}</Text>
+      <Text className="text-3xl font-fraunces-semibold text-white">
+  {cutName ?? "Your Haircut"}
+</Text>
         <Pressable
           style={{ backgroundColor: "#9DC228" }}
           className="items-center justify-center rounded-full px-4 py-3"

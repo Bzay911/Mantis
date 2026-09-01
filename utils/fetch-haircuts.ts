@@ -8,6 +8,7 @@ type Haircut = {
 };
 
 const fetchHaircuts = async (): Promise<Haircut[]> => {
+  // console.log("Fetching haircuts from API...");
   const response = await fetch(`${API_BASE_URL}/api/haircuts/get-all-haircuts`);
   if (!response.ok) throw new Error("Failed to fetch haircuts");
   return response.json();

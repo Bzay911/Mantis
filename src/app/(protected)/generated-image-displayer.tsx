@@ -1,5 +1,6 @@
 import { Pressable, Text, View, useWindowDimensions } from "react-native";
 import { Image } from "expo-image";
+import { useEffect } from "react";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useGeneratedImageStore } from "../../../store/generated-image-store";
@@ -9,8 +10,10 @@ import {
   fitContainer,
 } from "react-native-zoom-toolkit";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useQueryClient } from "@tanstack/react-query";
 
 export default function GeneratedImageDisplayer() {
+  const queryClient = useQueryClient();
   const router = useRouter();
   const { width, height } = useWindowDimensions();
   const generatedImage = useGeneratedImageStore(
@@ -23,6 +26,12 @@ export default function GeneratedImageDisplayer() {
   const clearGeneratedImage = useGeneratedImageStore(
     (state) => state.clearGeneratedImage,
   );
+
+  useEffect(() => {
+    return () => {
+      queryClient.invalidateQueries({ queryKey: ["haircuts"] });
+    };
+  }, [queryClient]);
 
   if (isFetching || resolution === undefined) {
     return null;
@@ -45,7 +54,9 @@ export default function GeneratedImageDisplayer() {
             router.back();
           }}
         />
-        <Text className="text-2xl font-fraunces-semibold text-white">Generated Image</Text>
+        <Text className="text-2xl font-fraunces-semibold text-white">
+          Generated Image
+        </Text>
         <View className="flex-row items-center justify-center gap-4">
           <Pressable>
             <Ionicons name="share-outline" size={28} color="white" />
@@ -54,7 +65,9 @@ export default function GeneratedImageDisplayer() {
             style={{ backgroundColor: "#9DC228" }}
             className="items-center justify-center rounded-full px-4 py-3"
           >
-            <Text className="text-black text-lg font-jakarta-semibold">Save</Text>
+            <Text className="text-black text-lg font-jakarta-semibold">
+              Save
+            </Text>
           </Pressable>
         </View>
       </View>
