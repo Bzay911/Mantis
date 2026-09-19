@@ -4,11 +4,11 @@
     "slug": "Mynextcut-frontend",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/mantis_app_icon.png",
+    "icon": "./assets/images/Mantis-logo-v1.png",
     "scheme": "mynextcutfrontend",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/images/mantis_app_icon.png",
+      "icon": "./assets/images/Mantis-logo-v1.png",
       "bundleIdentifier": "com.beejaya.Mynextcut-frontend",
       "infoPlist": {
         "NSCameraUsageDescription": "This app uses the camera to let you take photos and scan documents.",
@@ -18,7 +18,7 @@
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/images/mantis_app_icon.png",
+        "foregroundImage": "./assets/images/Mantis-logo-v1.png",
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },

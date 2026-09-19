@@ -140,7 +140,7 @@ export default function Profile() {
                 <Text className="text-white text-lg font-jakarta">Version</Text>
               </View>
               <Text className="text-white text-lg font-jakarta">
-                v1.0
+                V 1.0
               </Text>
             </View>
         </View>

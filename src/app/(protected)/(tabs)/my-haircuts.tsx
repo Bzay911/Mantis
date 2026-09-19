@@ -6,11 +6,15 @@ import {
   Pressable,
   Dimensions,
   RefreshControl,
+  Alert,
+  ActivityIndicator,
 } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Image } from "expo-image";
+import * as Haptics from "expo-haptics";
+import { deleteGeneratedImage } from "../../../../utils/delete-generated-image";
 import { fetchAllGenerations } from "../../../../utils/fetch-all-generations";
 import { useAuth } from "../../../../contexts/auth-context";
 import formatDate from "../../../../utils/format-date";
@@ -19,7 +23,7 @@ import { useRouter } from "expo-router";
 const { width } = Dimensions.get("window");
 const NUM_COLUMNS = 2;
 const GAP = 6;
-const ASPECT_RATIO = 5 / 4; // height = width * 1.33 — tweak this to taste, e.g. 3/2, 5/4, etc.
+const ASPECT_RATIO = 5 / 4;
 const ITEM_WIDTH = (width - 32 - GAP * (NUM_COLUMNS - 1)) / NUM_COLUMNS;
 const ITEM_HEIGHT = ITEM_WIDTH * ASPECT_RATIO;
 
@@ -33,6 +37,8 @@ type Generation = {
 export default function MyHaircuts() {
   const { accessToken } = useAuth();
   const router = useRouter();
+  const queryClient = useQueryClient();
+
   const {
     data: generatedImages = [],
     isLoading,
@@ -46,6 +52,29 @@ export default function MyHaircuts() {
     },
     enabled: !!accessToken,
   });
+
+const deleteMutation = useMutation({
+  mutationFn: (id: string) => deleteGeneratedImage(accessToken!, id),
+  onSuccess: () => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    queryClient.invalidateQueries({ queryKey: ["haircuts", accessToken] });
+  },
+  onError: () => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    Alert.alert("Couldn't delete", "Please try again.");
+  },
+});
+
+  const confirmDelete = (item: Generation) => {
+    Alert.alert("Delete this generated haircut?", "This action can't be undone.", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Delete",
+        style: "destructive",
+        onPress: () => deleteMutation.mutate(item.id),
+      },
+    ]);
+  };
 
   return (
     <SafeAreaView className="flex-1 bg-black p-4">
@@ -74,55 +103,82 @@ export default function MyHaircuts() {
             <RefreshControl
               refreshing={isRefetching}
               onRefresh={refetch}
-              tintColor="#9DC228" // spinner color, matches your accent color
+              tintColor="#9DC228"
             />
           }
-          renderItem={({ item }) => (
-            <Pressable
-              onPress={() => {
-                router.push({
-                  pathname: "/(protected)/image-displayer",
-                  params: { imageUrl: item.resultImageUrl },
-                });
-              }}
-            >
-              <View
-                style={{
-                  width: ITEM_WIDTH,
-                  height: ITEM_HEIGHT,
-                  borderRadius: 12,
-                  overflow: "hidden",
+          renderItem={({ item }) => {
+            const isDeleting = deleteMutation.isPending && deleteMutation.variables === item.id;
+
+            return (
+              <Pressable
+                onPress={() => {
+                  router.push({
+                    pathname: "/(protected)/image-displayer",
+                    params: { imageUrl: item.resultImageUrl },
+                  });
+                }}
+                onLongPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                  confirmDelete(item);
                 }}
               >
-                <Image
-                  source={{
-                    uri: item.thumbnailUrl || item.resultImageUrl || undefined,
-                  }}
+                <View
                   style={{
                     width: ITEM_WIDTH,
                     height: ITEM_HEIGHT,
-                    backgroundColor: "#1a1a1a",
-                  }}
-                  contentFit="cover"
-                  transition={200}
-                />
-                <View
-                  style={{
-                    position: "absolute",
-                    bottom: 0,
-                    left: 0,
-                    right: 0,
-                    paddingHorizontal: 8,
-                    paddingVertical: 6,
+                    borderRadius: 12,
+                    overflow: "hidden",
                   }}
                 >
-                  <Text className="text-white text-xs font-jakarta-semibold">
-                    {formatDate(item.createdAt)}
-                  </Text>
+                  <Image
+                    source={{
+                      uri:
+                        item.thumbnailUrl || item.resultImageUrl || undefined,
+                    }}
+                    style={{
+                      width: ITEM_WIDTH,
+                      height: ITEM_HEIGHT,
+                      backgroundColor: "#1a1a1a",
+                    }}
+                    contentFit="cover"
+                    transition={200}
+                  />
+                  <View
+                    style={{
+                      position: "absolute",
+                      bottom: 0,
+                      left: 0,
+                      right: 0,
+                      paddingHorizontal: 8,
+                      paddingVertical: 6,
+                    }}
+                  >
+                    <Text className="text-white text-xs font-jakarta-semibold">
+                      {formatDate(item.createdAt)}
+                    </Text>
+                  </View>
+
+                    {isDeleting && (
+                    <View
+                      style={{
+                        position: "absolute",
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        alignItems: "center",
+                        justifyContent: "center",
+                        backgroundColor: "rgba(0,0,0,0.3)",
+                      }}
+                    >
+                      <ActivityIndicator color="#fff" />
+                    </View>
+                  )}
+
                 </View>
-              </View>
-            </Pressable>
-          )}
+              </Pressable>
+            );
+          }}
         />
       ) : (
         <View className="flex-1 justify-center items-center">

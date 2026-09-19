@@ -19,6 +19,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { Presets } from "react-native-pulsar";
 import { useAuth } from "../../../contexts/auth-context";
 import { useCapturedUserImageStore } from "../../../store/captured-user-image";
 import { useGeneratedImageStore } from "../../../store/generated-image-store";
@@ -75,6 +76,8 @@ export default function AiPage() {
 
   const canGenerate = Boolean(userImageUri && inspirationImageUri);
 
+const loadingHapticRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
   const {
     data: haircuts = [],
     isLoading: isHaircutsLoading,
@@ -83,6 +86,25 @@ export default function AiPage() {
     queryKey: ["haircuts"],
     queryFn: fetchHaircuts,
   });
+
+useEffect(() => {
+  if (isLoading) {
+    Presets.radar(); // fire immediately so there's no initial delay
+    loadingHapticRef.current = setInterval(() => {
+      Presets.radar();
+    }, 1500); // re-trigger roughly every 1.5s — match this to the preset's own duration
+  } else {
+    if (loadingHapticRef.current) {
+      clearInterval(loadingHapticRef.current);
+      loadingHapticRef.current = null;
+    }
+  }
+  return () => {
+    if (loadingHapticRef.current) {
+      clearInterval(loadingHapticRef.current);
+    }
+  };
+}, [isLoading]);
 
   useEffect(() => {
     if (selectedCut) {
