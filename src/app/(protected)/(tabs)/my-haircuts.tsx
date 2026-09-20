@@ -13,7 +13,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Image } from "expo-image";
-import * as Haptics from "expo-haptics";
+import { Presets } from "react-native-pulsar";
 import { useMemo } from "react";
 import { deleteGeneratedImage } from "../../../../utils/delete-generated-image";
 import { fetchAllGenerations } from "../../../../utils/fetch-all-generations";
@@ -65,11 +65,11 @@ export default function MyHaircuts() {
   const deleteMutation = useMutation({
     mutationFn: (id: string) => deleteGeneratedImage(accessToken!, id),
     onSuccess: () => {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Presets.System.notificationSuccess();
       queryClient.invalidateQueries({ queryKey: ["haircuts", accessToken] });
     },
     onError: () => {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+       Presets.System.notificationError();
       Alert.alert("Couldn't delete", "Please try again.");
     },
   });
@@ -125,12 +125,12 @@ export default function MyHaircuts() {
         key={item.id}
         onPress={() => {
           router.push({
-            pathname: "/(protected)/image-displayer",
+            pathname: "/(protected)/generated-image-displayer",
             params: { imageUrl: item.resultImageUrl },
           });
         }}
         onLongPress={() => {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+          Presets.System.impactMedium();
           confirmDelete(item);
         }}
       >

@@ -1,7 +1,7 @@
 import { Pressable, Text, View, useWindowDimensions } from "react-native";
 import { Image } from "expo-image";
 import { useEffect } from "react";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useGeneratedImageStore } from "../../../store/generated-image-store";
 import {
@@ -16,16 +16,24 @@ export default function GeneratedImageDisplayer() {
   const queryClient = useQueryClient();
   const router = useRouter();
   const { width, height } = useWindowDimensions();
+
+  const { imageUrl: paramImageUrl } = useLocalSearchParams<{
+    imageUrl?: string;
+  }>();
+
   const generatedImage = useGeneratedImageStore(
     (state) => state.generatedImage,
   );
-  const { isFetching, resolution } = useImageResolution({
-    uri: generatedImage || "",
-  });
-
   const clearGeneratedImage = useGeneratedImageStore(
     (state) => state.clearGeneratedImage,
   );
+
+  // Prefer whatever was passed via route params; fall back to the store
+  const displayImage = paramImageUrl || generatedImage;
+
+  const { isFetching, resolution } = useImageResolution({
+    uri: displayImage || "",
+  });
 
   useEffect(() => {
     return () => {
@@ -36,6 +44,7 @@ export default function GeneratedImageDisplayer() {
   if (isFetching || resolution === undefined) {
     return null;
   }
+
   const size = fitContainer(resolution.width / resolution.height, {
     width,
     height,
@@ -72,11 +81,11 @@ export default function GeneratedImageDisplayer() {
         </View>
       </View>
 
-      {generatedImage && (
+      {displayImage && (
         <View className="flex-1">
           <ResumableZoom maxScale={resolution}>
             <Image
-              source={{ uri: generatedImage }}
+              source={{ uri: displayImage }}
               style={{ ...size }}
               contentFit="contain"
             />
