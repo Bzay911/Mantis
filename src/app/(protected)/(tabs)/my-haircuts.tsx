@@ -2,7 +2,7 @@ import {
   ImageBackground,
   View,
   Text,
-  FlatList,
+  SectionList,
   Pressable,
   Dimensions,
   RefreshControl,
@@ -14,11 +14,14 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Image } from "expo-image";
 import * as Haptics from "expo-haptics";
+import { useMemo } from "react";
 import { deleteGeneratedImage } from "../../../../utils/delete-generated-image";
 import { fetchAllGenerations } from "../../../../utils/fetch-all-generations";
 import { useAuth } from "../../../../contexts/auth-context";
 import formatDate from "../../../../utils/format-date";
 import { useRouter } from "expo-router";
+import { getDateGroupLabel } from "../../../../utils/date-group-helpers";
+import { Generation } from "../../../../types/generation";
 
 const { width } = Dimensions.get("window");
 const NUM_COLUMNS = 2;
@@ -27,12 +30,18 @@ const ASPECT_RATIO = 5 / 4;
 const ITEM_WIDTH = (width - 32 - GAP * (NUM_COLUMNS - 1)) / NUM_COLUMNS;
 const ITEM_HEIGHT = ITEM_WIDTH * ASPECT_RATIO;
 
-type Generation = {
-  id: string;
-  resultImageUrl: string | null;
-  thumbnailUrl: string | null;
-  createdAt: string;
-};
+function getDateGroupKey(dateString: string) {
+  const date = new Date(dateString);
+  return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+}
+
+function chunkIntoRows<T>(items: T[], size: number): T[][] {
+  const rows: T[][] = [];
+  for (let i = 0; i < items.length; i += size) {
+    rows.push(items.slice(i, i + size));
+  }
+  return rows;
+}
 
 export default function MyHaircuts() {
   const { accessToken } = useAuth();
@@ -53,27 +62,132 @@ export default function MyHaircuts() {
     enabled: !!accessToken,
   });
 
-const deleteMutation = useMutation({
-  mutationFn: (id: string) => deleteGeneratedImage(accessToken!, id),
-  onSuccess: () => {
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    queryClient.invalidateQueries({ queryKey: ["haircuts", accessToken] });
-  },
-  onError: () => {
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-    Alert.alert("Couldn't delete", "Please try again.");
-  },
-});
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => deleteGeneratedImage(accessToken!, id),
+    onSuccess: () => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      queryClient.invalidateQueries({ queryKey: ["haircuts", accessToken] });
+    },
+    onError: () => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert("Couldn't delete", "Please try again.");
+    },
+  });
 
   const confirmDelete = (item: Generation) => {
-    Alert.alert("Delete this generated haircut?", "This action can't be undone.", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Delete",
-        style: "destructive",
-        onPress: () => deleteMutation.mutate(item.id),
-      },
-    ]);
+    Alert.alert(
+      "Delete this generated haircut?",
+      "This action can't be undone.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: () => deleteMutation.mutate(item.id),
+        },
+      ],
+    );
+  };
+
+  // Group images by calendar day, then chunk each day's items into rows of NUM_COLUMNS
+  const sections = useMemo(() => {
+    const groups: Record<
+      string,
+      { label: string; sortDate: Date; items: Generation[] }
+    > = {};
+
+    for (const item of generatedImages) {
+      const key = getDateGroupKey(item.createdAt);
+      if (!groups[key]) {
+        groups[key] = {
+          label: getDateGroupLabel(item.createdAt),
+          sortDate: new Date(item.createdAt),
+          items: [],
+        };
+      }
+      groups[key].items.push(item);
+    }
+
+    return Object.values(groups)
+      .sort((a, b) => b.sortDate.getTime() - a.sortDate.getTime()) // newest day first
+      .map((group) => ({
+        title: group.label,
+        data: chunkIntoRows(group.items, NUM_COLUMNS),
+      }));
+  }, [generatedImages]);
+
+  const renderHaircutCard = (item: Generation) => {
+    const isDeleting =
+      deleteMutation.isPending && deleteMutation.variables === item.id;
+
+    return (
+      <Pressable
+        key={item.id}
+        onPress={() => {
+          router.push({
+            pathname: "/(protected)/image-displayer",
+            params: { imageUrl: item.resultImageUrl },
+          });
+        }}
+        onLongPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+          confirmDelete(item);
+        }}
+      >
+        <View
+          style={{
+            width: ITEM_WIDTH,
+            height: ITEM_HEIGHT,
+            borderRadius: 12,
+            overflow: "hidden",
+          }}
+        >
+          <Image
+            source={{
+              uri: item.thumbnailUrl || item.resultImageUrl || undefined,
+            }}
+            style={{
+              width: ITEM_WIDTH,
+              height: ITEM_HEIGHT,
+              backgroundColor: "#1a1a1a",
+            }}
+            contentFit="cover"
+            transition={200}
+          />
+          <View
+            style={{
+              position: "absolute",
+              bottom: 0,
+              left: 0,
+              right: 0,
+              paddingHorizontal: 8,
+              paddingVertical: 6,
+            }}
+          >
+            <Text className="text-white text-xs font-jakarta-semibold">
+              {formatDate(item.createdAt)}
+            </Text>
+          </View>
+
+          {isDeleting && (
+            <View
+              style={{
+                position: "absolute",
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                alignItems: "center",
+                justifyContent: "center",
+                backgroundColor: "rgba(0,0,0,0.3)",
+              }}
+            >
+              <ActivityIndicator color="#fff" />
+            </View>
+          )}
+        </View>
+      </Pressable>
+    );
   };
 
   return (
@@ -93,12 +207,10 @@ const deleteMutation = useMutation({
           </Text>
         </View>
       ) : generatedImages && generatedImages.length > 0 ? (
-        <FlatList
-          data={generatedImages}
-          keyExtractor={(item) => item.id}
-          numColumns={NUM_COLUMNS}
+        <SectionList
+          sections={sections}
+          keyExtractor={(row, index) => row.map((i) => i.id).join("-") + index}
           contentContainerStyle={{ paddingTop: 16, paddingBottom: 32 }}
-          columnWrapperStyle={{ gap: GAP, marginBottom: GAP }}
           refreshControl={
             <RefreshControl
               refreshing={isRefetching}
@@ -106,79 +218,26 @@ const deleteMutation = useMutation({
               tintColor="#9DC228"
             />
           }
-          renderItem={({ item }) => {
-            const isDeleting = deleteMutation.isPending && deleteMutation.variables === item.id;
-
-            return (
-              <Pressable
-                onPress={() => {
-                  router.push({
-                    pathname: "/(protected)/image-displayer",
-                    params: { imageUrl: item.resultImageUrl },
-                  });
-                }}
-                onLongPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                  confirmDelete(item);
-                }}
-              >
-                <View
-                  style={{
-                    width: ITEM_WIDTH,
-                    height: ITEM_HEIGHT,
-                    borderRadius: 12,
-                    overflow: "hidden",
-                  }}
-                >
-                  <Image
-                    source={{
-                      uri:
-                        item.thumbnailUrl || item.resultImageUrl || undefined,
-                    }}
-                    style={{
-                      width: ITEM_WIDTH,
-                      height: ITEM_HEIGHT,
-                      backgroundColor: "#1a1a1a",
-                    }}
-                    contentFit="cover"
-                    transition={200}
-                  />
-                  <View
-                    style={{
-                      position: "absolute",
-                      bottom: 0,
-                      left: 0,
-                      right: 0,
-                      paddingHorizontal: 8,
-                      paddingVertical: 6,
-                    }}
-                  >
-                    <Text className="text-white text-xs font-jakarta-semibold">
-                      {formatDate(item.createdAt)}
-                    </Text>
-                  </View>
-
-                    {isDeleting && (
-                    <View
-                      style={{
-                        position: "absolute",
-                        top: 0,
-                        left: 0,
-                        right: 0,
-                        bottom: 0,
-                        alignItems: "center",
-                        justifyContent: "center",
-                        backgroundColor: "rgba(0,0,0,0.3)",
-                      }}
-                    >
-                      <ActivityIndicator color="#fff" />
-                    </View>
-                  )}
-
-                </View>
-              </Pressable>
-            );
-          }}
+          renderSectionHeader={({ section }) => (
+            <Text className="text-white text-xl font-jakarta-semibold mb-3 mt-2">
+              {section.title}
+            </Text>
+          )}
+          renderItem={({ item: row }) => (
+            <View
+              style={{
+                flexDirection: "row",
+                gap: GAP,
+                marginBottom: GAP,
+              }}
+            >
+              {row.map((item) => renderHaircutCard(item))}
+              {/* filler so an odd last item doesn't stretch full width */}
+              {row.length < NUM_COLUMNS && (
+                <View style={{ width: ITEM_WIDTH }} />
+              )}
+            </View>
+          )}
         />
       ) : (
         <View className="flex-1 justify-center items-center">
