@@ -18,6 +18,7 @@ import {
   Text,
   View,
 } from "react-native";
+import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Presets } from "react-native-pulsar";
 import { useAuth } from "../../../contexts/auth-context";
@@ -27,16 +28,11 @@ import { useSelectedCutStore } from "../../../store/use-selected-cut";
 import { convertImageToJpeg } from "../../../utils/convert-image-to-jpeg";
 import fetchHaircuts from "../../../utils/fetch-haircuts";
 import { API_BASE_URL } from "../../constants/api-config";
+import { loadingMessages } from "../../../utils/loading-messages";
+import type { Haircut } from "../../../types/haircut";
 
 type SheetTarget = "user" | "inspiration";
 type SheetView = "options" | "haircuts";
-
-type Haircut = {
-  id: string;
-  hairType: "Short" | "Medium" | "Long";
-  cutName: string;
-  imageUrl: string | null;
-};
 
 export default function AiPage() {
   const router = useRouter();
@@ -76,7 +72,9 @@ export default function AiPage() {
 
   const canGenerate = Boolean(userImageUri && inspirationImageUri);
 
-const loadingHapticRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const loadingHapticRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [loadingMessageIndex, setLoadingMessageIndex] = useState(0);
+  const loadingMessageRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const {
     data: haircuts = [],
@@ -87,24 +85,46 @@ const loadingHapticRef = useRef<ReturnType<typeof setInterval> | null>(null);
     queryFn: fetchHaircuts,
   });
 
-useEffect(() => {
-  if (isLoading) {
-    Presets.radar(); // fire immediately so there's no initial delay
-    loadingHapticRef.current = setInterval(() => {
-      Presets.radar();
-    }, 1500); // re-trigger roughly every 1.5s — match this to the preset's own duration
-  } else {
-    if (loadingHapticRef.current) {
-      clearInterval(loadingHapticRef.current);
-      loadingHapticRef.current = null;
+  // Haptic feedback for loading state
+  useEffect(() => {
+    if (isLoading) {
+      Presets.radar(); // fire immediately so there's no initial delay
+      loadingHapticRef.current = setInterval(() => {
+        Presets.radar();
+      }, 3000); // re-trigger roughly every 1.5s — match this to the preset's own duration
+    } else {
+      if (loadingHapticRef.current) {
+        clearInterval(loadingHapticRef.current);
+        loadingHapticRef.current = null;
+      }
     }
-  }
-  return () => {
-    if (loadingHapticRef.current) {
-      clearInterval(loadingHapticRef.current);
+    return () => {
+      if (loadingHapticRef.current) {
+        clearInterval(loadingHapticRef.current);
+      }
+    };
+  }, [isLoading]);
+
+  // Loading messages cycling effect, separated from haptics since we may need to implement turn off haptics in future
+  useEffect(() => {
+    if (isLoading) {
+      setLoadingMessageIndex(0); // always start from the first message
+      loadingMessageRef.current = setInterval(() => {
+        setLoadingMessageIndex((prev) => (prev + 1) % loadingMessages.length);
+      }, 3000); // how long each message stays on screen
+    } else {
+      if (loadingMessageRef.current) {
+        clearInterval(loadingMessageRef.current);
+        loadingMessageRef.current = null;
+      }
     }
-  };
-}, [isLoading]);
+
+    return () => {
+      if (loadingMessageRef.current) {
+        clearInterval(loadingMessageRef.current);
+      }
+    };
+  }, [isLoading]);
 
   useEffect(() => {
     if (selectedCut) {
@@ -217,10 +237,7 @@ useEffect(() => {
     return new File(uri);
   };
 
-  const uploadImages = async (
-    uri1: string,
-    uri2: string,
-  ) => {
+  const uploadImages = async (uri1: string, uri2: string) => {
     const convertedUri1 = await convertImageToJpeg(uri1);
     const userImage = buildFile(convertedUri1);
 
@@ -299,9 +316,17 @@ useEffect(() => {
         {isLoading ? (
           <View className="flex-1 items-center justify-center gap-4">
             <ActivityIndicator size="large" color="#9DC228" />
-            <Text className="text-white text-lg font-jakarta">
-              Generating your cut...
-            </Text>
+            {/* <Text className="text-white text-lg font-jakarta">
+             {loadingMessages[loadingMessageIndex]}
+            </Text> */}
+            <Animated.Text
+              key={loadingMessageIndex}
+              entering={FadeIn.duration(300)}
+              exiting={FadeOut.duration(300)}
+              className="text-white text-lg font-jakarta"
+            >
+              {loadingMessages[loadingMessageIndex]}
+            </Animated.Text>
           </View>
         ) : (
           <ScrollView
@@ -365,15 +390,15 @@ useEffect(() => {
       <Pressable
         disabled={!canGenerate || isLoading}
         onPress={() => handleGenerate()}
-        className={`mx-4 mb-4 flex-row items-center justify-center gap-2 rounded-full px-6 py-4 ${canGenerate ? "bg-[#9DC228]" : "bg-[#2c2c2e]"}`}
+        className={`mx-4 mb-4 flex-row items-center justify-center gap-2 rounded-full px-6 py-4 ${canGenerate && !isLoading ? "bg-[#9DC228]" : "bg-[#2c2c2e]"}`}
       >
         <Ionicons
           name="sparkles"
           size={18}
-          color={canGenerate ? "black" : "#6b6b6b"}
+          color={canGenerate && !isLoading ? "black" : "#6b6b6b"}
         />
         <Text
-          className={`text-lg font-jakarta-semibold ${canGenerate ? "text-black" : "text-[#6b6b6b]"}`}
+          className={`text-lg font-jakarta-semibold ${canGenerate && !isLoading ? "text-black" : "text-[#6b6b6b]"}`}
         >
           Generate
         </Text>

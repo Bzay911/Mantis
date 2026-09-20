@@ -1,0 +1,21 @@
+
+export const loadingMessages = [
+  "Uploading your photos...",
+  "Studying your face shape...",
+  "Reading your hair texture...",
+  "Analyzing the inspiration style...",
+  "Mapping key facial features...",
+  "Matching the cut to your proportions...",
+  "Blending the style with your look...",
+  "Adjusting for your hairline...",
+  "Calculating the right length and layers...",
+  "Rendering the first pass...",
+  "Refining the edges...",
+  "Smoothing out the transitions...",
+  "Fine-tuning the color and shine...",
+  "Checking the fit from every angle...",
+  "Polishing the final details...",
+  "Almost there...",
+  "Putting on the finishing touches...",
+  "Just a few more seconds...",
+];
