@@ -1,13 +1,44 @@
-import { View, Text, Pressable, Linking } from "react-native";
+import { View, Text, Pressable, Linking, Alert } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "../../../../contexts/auth-context";
 import { useRouter } from "expo-router";
 import { ScrollView } from "react-native-gesture-handler";
+import { deleteUserAccount } from "../../../../utils/delete-user-account";
+import { useMutation } from "@tanstack/react-query";
 
 export default function Profile() {
-  const { user, logout } = useAuth();
+  const { user, logout, accessToken } = useAuth();
   const router = useRouter();
+
+  const deleteAccountMutation = useMutation({
+    mutationFn: () => deleteUserAccount(accessToken!),
+    onSuccess: () => {
+      logout();
+      router.replace("/");
+    },
+    onError: () => {
+      Alert.alert(
+        "Couldn't delete account",
+        "Something went wrong. Please try again.",
+      );
+    },
+  });
+
+  const confirmDeleteAccount = () => {
+    Alert.alert(
+      "Delete your account?",
+      "This will permanently delete your account, credits, and all generated haircuts. This can't be undone.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: () => deleteAccountMutation.mutate(),
+        },
+      ],
+    );
+  };
 
   return (
     <SafeAreaView className="flex-1 bg-black p-4">
@@ -21,13 +52,15 @@ export default function Profile() {
         <Text className="text-white mt-6 mb-3 mx-2 text-xl font-jakarta-semibold">
           Account Details
         </Text>
-      
+
         <View className="justify-center items-center bg-[#27272a] p-6 rounded-[28px]">
           <View className="w-full">
             <View className="flex-row items-center justify-between w-full pb-3">
               <View className="flex-row items-center gap-3">
                 <Ionicons name="person-outline" size={18} color="white" />
-                <Text className="text-white text-lg font-jakarta">Full Name</Text>
+                <Text className="text-white text-lg font-jakarta">
+                  Full Name
+                </Text>
               </View>
               <Text className="text-white text-lg font-jakarta">
                 {user?.displayName}
@@ -108,7 +141,9 @@ export default function Profile() {
             <Pressable
               className="flex-row items-center gap-3 w-full pb-3 active:opacity-80"
               onPress={() => {
-                Linking.openURL("https://bzay911.github.io/Mantis-terms-of-use/");
+                Linking.openURL(
+                  "https://bzay911.github.io/Mantis-terms-of-use/",
+                );
               }}
             >
               <Ionicons name="document-text-outline" size={18} color="white" />
@@ -120,29 +155,33 @@ export default function Profile() {
           </View>
 
           <View className="w-full">
-          <Pressable
-            className="flex-row items-center gap-3 w-full mt-4 active:opacity-80 pb-3"
-            onPress={() => {
-              Linking.openURL("https://bzay911.github.io/Mantis-privacy-policy/");
-            }}
+            <Pressable
+              className="flex-row items-center gap-3 w-full mt-4 active:opacity-80 pb-3"
+              onPress={() => {
+                Linking.openURL(
+                  "https://bzay911.github.io/Mantis-privacy-policy/",
+                );
+              }}
             >
-            <Ionicons name="lock-closed-outline" size={18} color="white" />
-            <Text className="text-white font-jakarta text-lg">
-              Privacy policy
-            </Text>
-          </Pressable>
-                <View className="h-[0.5px] bg-gray-500 w-[90%] self-center" />
-            </View>  
-
-               <View className="flex-row items-center justify-between w-full mt-3">
-              <View className="flex-row items-center gap-3">
-                <Ionicons name="information-circle-outline" size={20} color="white" />
-                <Text className="text-white text-lg font-jakarta">Version</Text>
-              </View>
-              <Text className="text-white text-lg font-jakarta">
-                V 1.0
+              <Ionicons name="lock-closed-outline" size={18} color="white" />
+              <Text className="text-white font-jakarta text-lg">
+                Privacy policy
               </Text>
+            </Pressable>
+            <View className="h-[0.5px] bg-gray-500 w-[90%] self-center" />
+          </View>
+
+          <View className="flex-row items-center justify-between w-full mt-3">
+            <View className="flex-row items-center gap-3">
+              <Ionicons
+                name="information-circle-outline"
+                size={20}
+                color="white"
+              />
+              <Text className="text-white text-lg font-jakarta">Version</Text>
             </View>
+            <Text className="text-white text-lg font-jakarta">V 1.0</Text>
+          </View>
         </View>
 
         <Text className="text-white mt-6 mb-3 mx-2 text-xl font-jakarta-semibold">
@@ -150,14 +189,13 @@ export default function Profile() {
         </Text>
 
         <Pressable
+          disabled={deleteAccountMutation.isPending}
           className="flex-row items-center gap-3 w-full bg-[#27272a] p-6 rounded-[28px] active:opacity-80"
-          onPress={() => {
-            // Handle delete account logic
-          }}
+          onPress={confirmDeleteAccount}
         >
           <Ionicons name="trash-outline" size={18} color="#f87171" />
           <Text className="text-[#f87171] font-jakarta text-lg">
-            Delete Account
+            {deleteAccountMutation.isPending ? "Deleting..." : "Delete Account"}
           </Text>
         </Pressable>
 

@@ -199,6 +199,7 @@ export default function AiPage() {
 
     uploadImages(userImageUri!, inspirationImageUri!)
       .then((response) => {
+        // console.log("Upload successful:", response);
         setUserImageUri(null);
         setInspirationImageUri(null);
         setGeneratedImage(response.generatedImage);
