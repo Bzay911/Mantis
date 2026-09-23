@@ -62,9 +62,8 @@
         }
       ],
       [
-
-      "expo-build-properties",
-      {
+        "expo-build-properties",
+        {
           "ios": {
             "useFrameworks": "static"
           }
@@ -73,9 +72,10 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Allow $(PRODUCT_NAME) to access your photos",
+          "photosPermission": "Allow $(PRODUCT_NAME) to access your photos"
         }
-      ] 
+      ],
+      "expo-sharing"
     ],
     "experiments": {
       "typedRoutes": true,

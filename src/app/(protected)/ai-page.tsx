@@ -199,10 +199,10 @@ export default function AiPage() {
 
     uploadImages(userImageUri!, inspirationImageUri!)
       .then((response) => {
-        // console.log("Upload successful:", response);
+        console.log("Upload successful:", response);
         setUserImageUri(null);
         setInspirationImageUri(null);
-        setGeneratedImage(response.generatedImage);
+        setGeneratedImage(response.generatedImageUrl);
         router.push("/(protected)/generated-image-displayer");
       })
       .catch((error: Error & { status?: number }) => {

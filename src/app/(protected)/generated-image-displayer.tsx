@@ -1,6 +1,6 @@
-import { Pressable, Text, View, useWindowDimensions } from "react-native";
+import { Pressable, Text, View, useWindowDimensions, Alert } from "react-native";
 import { Image } from "expo-image";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useGeneratedImageStore } from "../../../store/generated-image-store";
@@ -11,6 +11,8 @@ import {
 } from "react-native-zoom-toolkit";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useQueryClient } from "@tanstack/react-query";
+import * as Sharing from "expo-sharing";
+import { Directory, File, Paths } from "expo-file-system";
 
 export default function GeneratedImageDisplayer() {
   const queryClient = useQueryClient();
@@ -35,6 +37,8 @@ export default function GeneratedImageDisplayer() {
     uri: displayImage || "",
   });
 
+  const [isSharing, setIsSharing] = useState(false);  
+
   useEffect(() => {
     return () => {
       queryClient.invalidateQueries({ queryKey: ["haircuts"] });
@@ -49,6 +53,40 @@ export default function GeneratedImageDisplayer() {
     width,
     height,
   });
+
+  const handleShare = async () => {
+    if (!displayImage) return;
+
+    setIsSharing(true);
+    try {
+      const isAvailable = await Sharing.isAvailableAsync();
+      if (!isAvailable) {
+        Alert.alert("Sharing isn't available on this device");
+        return;
+      }
+
+      // Download the remote image into a local cache directory first —
+      // Sharing needs an on-device file, not a remote URL.
+      const cacheDir = new Directory(Paths.cache, "shared-haircuts");
+      if (!cacheDir.exists) {
+         cacheDir.create();
+      }
+
+      // we are downloading the image to a local file to ensure that it can be shared properly, 
+      // as some sharing targets may not handle remote URLs well.
+      const downloaded = await File.downloadFileAsync(displayImage, cacheDir, {idempotent: true});
+
+      await Sharing.shareAsync(downloaded.uri, {
+        mimeType: "image/jpeg",
+        dialogTitle: "Share your haircut",
+      });
+    } catch (error) {
+      console.error("Share failed:", error);
+      Alert.alert("Couldn't share image", "Please try again.");
+    } finally {
+      setIsSharing(false);
+    }
+  };
 
   return (
     <SafeAreaView className="flex-1 bg-[#1c1c1e] p-4">
@@ -66,19 +104,18 @@ export default function GeneratedImageDisplayer() {
         <Text className="text-2xl font-fraunces-semibold text-white">
           Generated Image
         </Text>
-        <View className="flex-row items-center justify-center gap-4">
-          <Pressable>
-            <Ionicons name="share-outline" size={28} color="white" />
-          </Pressable>
+      
           <Pressable
             style={{ backgroundColor: "#9DC228" }}
-            className="items-center justify-center rounded-full px-4 py-3"
+            className="flex-row items-center rounded-full px-4 py-3 gap-2"
+            onPress={handleShare}
+            disabled={isSharing}
           >
+              <Ionicons name="share-outline" size={22} color="black" />
             <Text className="text-black text-lg font-jakarta-semibold">
-              Save
+              {isSharing ? "Sharing..." : "Share"}
             </Text>
           </Pressable>
-        </View>
       </View>
 
       {displayImage && (
