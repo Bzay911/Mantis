@@ -9,6 +9,8 @@ import {
 import Purchases from "react-native-purchases";
 import { API_BASE_URL } from "../src/constants/api-config";
 import { checkRevenueCatUser } from "../utils/check-revenuecat-user";
+import type { User } from "../types/user";
+import { fetchValidatedUser } from "../utils/fetch-validated-user";
 
 interface AuthContextType {
   accessToken: string | null;
@@ -19,15 +21,8 @@ interface AuthContextType {
     user: User,
   ) => Promise<void>;
   logout: () => Promise<void>;
+  refetchUser: () => Promise<void>;
   loading: boolean;
-}
-
-interface User {
-  id: string;
-  displayName: string;
-  email: string;
-  credits: number;
-  createdAt: Date | null;
 }
 
 interface AuthProviderProps {
@@ -66,6 +61,18 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     }
   };
 
+  const refetchUser = async () => {
+    if (!accessToken) return;
+    try {
+      const freshUser = await fetchValidatedUser(accessToken);
+      if (freshUser) {
+        setUser(freshUser);
+      }
+    } catch (error) {
+      console.error("Error refetching user:", error);
+    }
+  };
+
   useEffect(() => {
     const restoreSession = async () => {
       try {
@@ -78,16 +85,18 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           return;
         }
 
-        let response = await fetch(`${API_BASE_URL}/api/auth/validate-token`, {
-          headers: {
-            Authorization: `Bearer ${storedAccessToken}`,
-          },
-        });
+        // let response = await fetch(`${API_BASE_URL}/api/auth/validate-token`, {
+        //   headers: {
+        //     Authorization: `Bearer ${storedAccessToken}`,
+        //   },
+        // });
+
+        let freshUser = await fetchValidatedUser(storedAccessToken);
 
         // tracking the current access token
         let currentAccessToken = storedAccessToken;
 
-        if (!response.ok) {
+        if (!freshUser) {
           const refreshResponse = await fetch(
             `${API_BASE_URL}/api/auth/refresh-token`,
             {
@@ -115,18 +124,13 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
           currentAccessToken = newAccessToken;
 
-          response = await fetch(`${API_BASE_URL}/api/auth/validate-token`, {
-            headers: {
-              Authorization: `Bearer ${newAccessToken}`,
-            },
-          });
+          freshUser = await fetchValidatedUser(newAccessToken);
         }
 
-        if (response.ok) {
-          const { user } = await response.json();
-          setUser(user);
+        if (freshUser) {
+          setUser(freshUser);
           setAccessToken(currentAccessToken);
-          await checkRevenueCatUser(user.id);
+          await checkRevenueCatUser(freshUser.id);
         }
       } catch (error) {
         console.error("Error restoring session:", error);
@@ -139,7 +143,9 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ accessToken, user, login, logout, loading }}>
+    <AuthContext.Provider
+      value={{ accessToken, user, login, logout, refetchUser, loading }}
+    >
       {children}
     </AuthContext.Provider>
   );

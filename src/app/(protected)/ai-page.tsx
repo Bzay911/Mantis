@@ -30,13 +30,14 @@ import fetchHaircuts from "../../../utils/fetch-haircuts";
 import { API_BASE_URL } from "../../constants/api-config";
 import { loadingMessages } from "../../../utils/loading-messages";
 import type { Haircut } from "../../../types/haircut";
+import { pickImageFromGallery } from "../../../utils/pick-image-from-gallery";
 
 type SheetTarget = "user" | "inspiration";
 type SheetView = "options" | "haircuts";
 
 export default function AiPage() {
   const router = useRouter();
-  const { accessToken } = useAuth();
+  const { accessToken, refetchUser, user } = useAuth();
   const { imageUri } = useLocalSearchParams<{ imageUri: string }>();
 
   const [userImageUri, setUserImageUri] = useState<string | null>(
@@ -70,7 +71,9 @@ export default function AiPage() {
   const bottomSheetRef = useRef<BottomSheet>(null);
   const snapPoints = useMemo(() => ["30%", "90%"], []);
 
-  const canGenerate = Boolean(userImageUri && inspirationImageUri);
+  const hasCredits = (user?.credits ?? 0) > 0;
+  const canGenerate =
+    Boolean(userImageUri && inspirationImageUri) && hasCredits;
 
   const loadingHapticRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [loadingMessageIndex, setLoadingMessageIndex] = useState(0);
@@ -84,6 +87,10 @@ export default function AiPage() {
     queryKey: ["haircuts"],
     queryFn: fetchHaircuts,
   });
+
+  useEffect(() => {
+    refetchUser();
+  }, []);
 
   // Haptic feedback for loading state
   useEffect(() => {
@@ -140,33 +147,48 @@ export default function AiPage() {
     }
   }, [capturedUserImage, clearCapturedUserImage]);
 
-  const pickImageFromGallery = async () => {
-    const permissionResult =
-      await ImagePicker.requestMediaLibraryPermissionsAsync();
+  // const pickImageFromGallery = async () => {
+  //   const permissionResult =
+  //     await ImagePicker.requestMediaLibraryPermissionsAsync();
 
-    if (!permissionResult.granted) {
-      Alert.alert(
-        "Permission required",
-        "Permission to access the gallery is required!",
-      );
-      return;
+  //   if (!permissionResult.granted) {
+  //     Alert.alert(
+  //       "Permission required",
+  //       "Permission to access the gallery is required!",
+  //     );
+  //     return;
+  //   }
+
+  //   let result = await ImagePicker.launchImageLibraryAsync({
+  //     mediaTypes: ["images"],
+  //     quality: 1,
+  //   });
+  //   bottomSheetRef.current?.close();
+  //   setSheetView("options");
+
+  //   if (!result.canceled) {
+  //     if (sheetTarget === "user") {
+  //       setUserImageUri(result.assets[0].uri);
+  //     } else {
+  //       setInspirationImageUri(result.assets[0].uri);
+  //     }
+  //   }
+  // };
+
+  const handlePickFromGallery = async () => {
+  const uri = await pickImageFromGallery();
+  bottomSheetRef.current?.close();
+  setSheetView("options");
+
+  if (uri) {
+    if (sheetTarget === "user") {
+      setUserImageUri(uri);
+    } else {
+      setInspirationImageUri(uri);
     }
+  }
+};
 
-    let result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ["images"],
-      quality: 1,
-    });
-    bottomSheetRef.current?.close();
-    setSheetView("options");
-
-    if (!result.canceled) {
-      if (sheetTarget === "user") {
-        setUserImageUri(result.assets[0].uri);
-      } else {
-        setInspirationImageUri(result.assets[0].uri);
-      }
-    }
-  };
 
   const handleSnapPress = useCallback((index: number, target: SheetTarget) => {
     Keyboard.dismiss();
@@ -199,10 +221,10 @@ export default function AiPage() {
 
     uploadImages(userImageUri!, inspirationImageUri!)
       .then((response) => {
-        console.log("Upload successful:", response);
         setUserImageUri(null);
         setInspirationImageUri(null);
         setGeneratedImage(response.generatedImageUrl);
+        refetchUser(); // Refetch user data to update credits after generation
         router.push("/(protected)/generated-image-displayer");
       })
       .catch((error: Error & { status?: number }) => {
@@ -317,9 +339,6 @@ export default function AiPage() {
         {isLoading ? (
           <View className="flex-1 items-center justify-center gap-4">
             <ActivityIndicator size="large" color="#9DC228" />
-            {/* <Text className="text-white text-lg font-jakarta">
-             {loadingMessages[loadingMessageIndex]}
-            </Text> */}
             <Animated.Text
               key={loadingMessageIndex}
               entering={FadeIn.duration(300)}
@@ -328,6 +347,25 @@ export default function AiPage() {
             >
               {loadingMessages[loadingMessageIndex]}
             </Animated.Text>
+          </View>
+        ) : !hasCredits ? (
+          <View className="flex-1 items-center justify-center gap-4 px-6">
+            <Ionicons name="flash-off-outline" size={40} color="#9DC228" />
+            <Text className="text-white text-xl font-jakarta-semibold text-center">
+              You're out of credits
+            </Text>
+            <Text className="text-gray-500 text-center font-jakarta">
+              Get more credits to keep generating haircuts.
+            </Text>
+            <Pressable
+              onPress={() => router.push("/(protected)/get-credits")}
+              style={{ backgroundColor: "#9DC228" }}
+              className="rounded-full px-6 py-3 mt-2"
+            >
+              <Text className="text-black font-jakarta-semibold text-lg">
+                Get Credits
+              </Text>
+            </Pressable>
           </View>
         ) : (
           <ScrollView
@@ -463,7 +501,7 @@ export default function AiPage() {
 
             <Pressable
               className="bg-[#2c2c2e] rounded-2xl px-4 py-4 flex-row items-center gap-3"
-              onPress={pickImageFromGallery}
+              onPress={handlePickFromGallery}
             >
               <Ionicons name="folder-outline" size={22} color="#9DC228" />
               <Text className="text-white text-base font-jakarta">

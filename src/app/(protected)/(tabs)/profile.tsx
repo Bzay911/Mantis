@@ -2,14 +2,21 @@ import { View, Text, Pressable, Linking, Alert } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "../../../../contexts/auth-context";
-import { useRouter } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import { ScrollView } from "react-native-gesture-handler";
 import { deleteUserAccount } from "../../../../utils/delete-user-account";
 import { useMutation } from "@tanstack/react-query";
+import { useCallback } from "react";
 
 export default function Profile() {
-  const { user, logout, accessToken } = useAuth();
+  const { user, logout, accessToken, refetchUser } = useAuth();
   const router = useRouter();
+
+  useFocusEffect(
+    useCallback(() => {
+      refetchUser();
+    }, []),
+  );
 
   const deleteAccountMutation = useMutation({
     mutationFn: () => deleteUserAccount(accessToken!),
