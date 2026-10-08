@@ -31,6 +31,7 @@ import { API_BASE_URL } from "../../constants/api-config";
 import { loadingMessages } from "../../../utils/loading-messages";
 import type { Haircut } from "../../../types/haircut";
 import { pickImageFromGallery } from "../../../utils/pick-image-from-gallery";
+import { useOnboardingStore } from "../../../store/onboarding-store";
 
 type SheetTarget = "user" | "inspiration";
 type SheetView = "options" | "haircuts";
@@ -38,17 +39,23 @@ type SheetView = "options" | "haircuts";
 export default function AiPage() {
   const router = useRouter();
   const { accessToken, refetchUser, user } = useAuth();
-  const { imageUri } = useLocalSearchParams<{ imageUri: string }>();
 
+  // Image URIs
+  const { imageUri } = useLocalSearchParams<{ imageUri: string }>();
   const [userImageUri, setUserImageUri] = useState<string | null>(
     imageUri || null,
   );
   const [inspirationImageUri, setInspirationImageUri] = useState<string | null>(
     null,
   );
+
+  // Bottom sheet states
   const [sheetTarget, setSheetTarget] = useState<SheetTarget>("inspiration");
   const [sheetView, setSheetView] = useState<SheetView>("options");
+  const bottomSheetRef = useRef<BottomSheet>(null);
+  const snapPoints = useMemo(() => ["30%", "90%"], []);
 
+  // Zustand stores
   const setGeneratedImage = useGeneratedImageStore(
     (state) => state.setGeneratedImage,
   );
@@ -66,11 +73,13 @@ export default function AiPage() {
     (s) => s.clearCapturedUserImage,
   );
 
+  const pendingGeneration = useOnboardingStore((s) => s.pendingGeneration);
+  const setPendingGeneration = useOnboardingStore(
+    (s) => s.setPendingGeneration,
+  );
+
+  // Loading states and flags
   const [isLoading, setIsLoading] = useState(false);
-
-  const bottomSheetRef = useRef<BottomSheet>(null);
-  const snapPoints = useMemo(() => ["30%", "90%"], []);
-
   const hasCredits = (user?.credits ?? 0) > 0;
   const canGenerate =
     Boolean(userImageUri && inspirationImageUri) && hasCredits;
@@ -147,6 +156,16 @@ export default function AiPage() {
     }
   }, [capturedUserImage, clearCapturedUserImage]);
 
+  // pendingGeneration triggering useEffect
+  useEffect(() => {
+    if (!pendingGeneration) return;
+    if (!accessToken || !userImageUri || !inspirationImageUri) return;
+    if (isLoading) return;
+
+    setPendingGeneration(false); // consume the flag so it only fires once
+    handleGenerate();
+  }, [pendingGeneration, accessToken, userImageUri, inspirationImageUri]);
+
   // const pickImageFromGallery = async () => {
   //   const permissionResult =
   //     await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -176,19 +195,18 @@ export default function AiPage() {
   // };
 
   const handlePickFromGallery = async () => {
-  const uri = await pickImageFromGallery();
-  bottomSheetRef.current?.close();
-  setSheetView("options");
+    const uri = await pickImageFromGallery();
+    bottomSheetRef.current?.close();
+    setSheetView("options");
 
-  if (uri) {
-    if (sheetTarget === "user") {
-      setUserImageUri(uri);
-    } else {
-      setInspirationImageUri(uri);
+    if (uri) {
+      if (sheetTarget === "user") {
+        setUserImageUri(uri);
+      } else {
+        setInspirationImageUri(uri);
+      }
     }
-  }
-};
-
+  };
 
   const handleSnapPress = useCallback((index: number, target: SheetTarget) => {
     Keyboard.dismiss();

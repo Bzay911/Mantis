@@ -1,4 +1,3 @@
-// app/(onboarding)/welcome.tsx
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { Pressable, Text, View } from "react-native";

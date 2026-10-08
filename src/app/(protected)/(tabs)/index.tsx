@@ -6,6 +6,9 @@ import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import fetchHaircuts from "../../../../utils/fetch-haircuts";
 import { Image } from "expo-image";
+import { useCapturedUserImageStore } from "../../../../store/captured-user-image";
+import { useSelectedCutStore } from "../../../../store/use-selected-cut";
+import { getHasSeenOnboarding } from "../../../../utils/onboarding-flag";
 
 type Haircut = {
   id: string;
@@ -35,6 +38,17 @@ export default function ProtectedIndex() {
     queryKey: ["haircuts"],
     queryFn: fetchHaircuts,
   });
+
+
+
+    // const capturedUserImage = useCapturedUserImageStore(
+    //   (s) => s.capturedUserImage,
+    // );
+
+    // const selectedCut = useSelectedCutStore((s) => s.selectedCut);
+
+    // console.log("capturedUserImage", capturedUserImage);
+    // console.log("selectedCut", selectedCut);
 
   const chips = useMemo(() => {
     const uniqueTypes = Array.from(new Set(haircuts.map((h) => h.hairType)));

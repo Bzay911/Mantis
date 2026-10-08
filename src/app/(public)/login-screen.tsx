@@ -1,16 +1,20 @@
-import { useRouter } from "expo-router";
 import {
   Pressable,
   Text,
   View,
-  ImageBackground,
   Alert,
   ActivityIndicator,
+  FlatList,
+  Linking,
+  useWindowDimensions,
+  NativeSyntheticEvent,
+  NativeScrollEvent,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
+import { Image } from "expo-image";
 import { FontAwesome } from "@expo/vector-icons";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   GoogleSignin,
   isErrorWithCode,
@@ -20,35 +24,58 @@ import {
 import { useAuth } from "../../../contexts/auth-context";
 import { API_BASE_URL } from "../../constants/api-config";
 
+GoogleSignin.configure({
+  webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
+  iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
+});
+
+const BACKGROUNDS = [
+  require("../../../assets/images/auth-page-images/sign-in-image1.jpg"),
+  require("../../../assets/images/auth-page-images/sign-in-image2.jpg"),
+  require("../../../assets/images/auth-page-images/sign-in-image3.jpg"),
+];
+
+const AUTO_ADVANCE_MS = 6000;
+
 export default function LoginScreen() {
-  // const router = useRouter();
   const [googleLoading, setGoogleLoading] = useState(false);
   const { login } = useAuth();
+  const { width, height } = useWindowDimensions();
 
-  GoogleSignin.configure({
-    webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
-    iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
-  });
+  const listRef = useRef<FlatList>(null);
+  const [activeIndex, setActiveIndex] = useState(0);
+
+  // Schedule the next slide whenever the active slide changes. Because it
+  // depends on activeIndex, a manual swipe automatically restarts the timer.
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const next = (activeIndex + 1) % BACKGROUNDS.length;
+      listRef.current?.scrollToIndex({ index: next, animated: true });
+      setActiveIndex(next);
+    }, AUTO_ADVANCE_MS);
+    return () => clearTimeout(timer);
+  }, [activeIndex]);
+
+  const handleScrollEnd = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    setActiveIndex(Math.round(e.nativeEvent.contentOffset.x / width));
+  };
 
   const handleGoogleSignin = async (idToken: string) => {
     try {
-      const res = await fetch(
-        `${API_BASE_URL}/api/auth/handle-google-auth`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ idToken }),
+      const res = await fetch(`${API_BASE_URL}/api/auth/handle-google-auth`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
         },
-      );
+        body: JSON.stringify({ idToken }),
+      });
       const data = await res.json();
       if (!res.ok) {
         console.log("Login failed", data.message);
         return;
       }
       const { accessToken, refreshToken, user } = data;
-      login(accessToken, refreshToken, user);
+      await login(accessToken, refreshToken, user);
     } catch (error) {
       console.log(`error from handleSignin: ${error}`);
     }
@@ -89,23 +116,57 @@ export default function LoginScreen() {
   };
 
   return (
-    <ImageBackground
-      source={require("../../../assets/images/auth-page-images/sign-in-image.jpg")}
-      className="flex-1"
-      resizeMode="cover"
-    >
-      {/* Gradient makes the photo readable regardless of what's in it */}
+    <View className="flex-1 bg-black">
+      {/* Swipeable background */}
+      <FlatList
+        ref={listRef}
+        data={BACKGROUNDS}
+        keyExtractor={(_, i) => String(i)}
+        horizontal
+        pagingEnabled
+        showsHorizontalScrollIndicator={false}
+        getItemLayout={(_, index) => ({
+          length: width,
+          offset: width * index,
+          index,
+        })}
+        onMomentumScrollEnd={handleScrollEnd}
+        style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}
+        renderItem={({ item }) => (
+          <Image source={item} contentFit="cover" style={{ width, height }} />
+        )}
+      />
+
+      {/* Gradient keeps the text readable on any photo. pointerEvents="none"
+          lets swipes pass through to the list underneath. */}
       <LinearGradient
         colors={["transparent", "rgba(0,0,0,0.55)", "rgba(0,0,0,0.92)"]}
         locations={[0, 0.55, 1]}
         className="absolute inset-0"
+        pointerEvents="none"
       />
 
-      <SafeAreaView className="flex-1" edges={["top", "bottom"]}>
+      <SafeAreaView
+        className="flex-1"
+        edges={["top", "bottom"]}
+        pointerEvents="box-none"
+      >
         {/* Spacer pushes everything below to the bottom third */}
-        <View className="flex-1" />
+        <View className="flex-1" pointerEvents="none" />
 
-        <View className="gap-6 px-6 pb-4">
+        <View className="gap-6 px-6 pb-4" pointerEvents="box-none">
+          {/* Page dots */}
+          <View className="flex-row gap-2">
+            {BACKGROUNDS.map((_, i) => (
+              <View
+                key={i}
+                className={`h-1.5 rounded-full ${
+                  i === activeIndex ? "w-6 bg-[#9DC228]" : "w-1.5 bg-white/40"
+                }`}
+              />
+            ))}
+          </View>
+
           <View className="gap-2">
             <Text className="text-[34px] font-fraunces-semibold leading-tight text-white">
               Welcome back
@@ -139,16 +200,18 @@ export default function LoginScreen() {
           </Pressable>
 
           <Text className="text-center text-sm font-jakarta text-white">
-            By continuing, you agree to our {""}
+            By continuing, you agree to our{" "}
             <Text
               className="font-semibold text-white underline"
-              onPress={() => ""}
+              onPress={() =>
+                Linking.openURL("https://bzay911.github.io/Mantis-terms-of-use/")
+              }
             >
               Terms of Service
             </Text>
           </Text>
         </View>
       </SafeAreaView>
-    </ImageBackground>
+    </View>
   );
 }

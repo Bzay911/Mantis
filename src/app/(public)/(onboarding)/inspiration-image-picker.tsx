@@ -1,10 +1,9 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useQuery } from "@tanstack/react-query";
 import { Image } from "expo-image";
-import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
 import { useState } from "react";
-import { ActivityIndicator, Alert, Pressable, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, Text, View } from "react-native";
 import { FlatList } from "react-native-gesture-handler";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { OnboardingHeader } from "../../../../components/onboarding/onboarding-header";
@@ -12,11 +11,13 @@ import { useSelectedCutStore } from "../../../../store/use-selected-cut";
 import type { Haircut } from "../../../../types/haircut";
 import fetchHaircuts from "../../../../utils/fetch-haircuts";
 import { pickImageFromGallery } from "../../../../utils/pick-image-from-gallery";
+import { useOnboardingStore } from "../../../../store/onboarding-store";
 
 export default function InspirationImagePicker() {
   const router = useRouter();
   const [inspirationUri, setInspirationUri] = useState<string | null>(null);
   const setSelectedCut = useSelectedCutStore((s) => s.setSelectedCut);
+  const setPendingGeneration = useOnboardingStore((s) => s.setPendingGeneration);
 
   const { data: haircuts = [], isLoading } = useQuery({
     queryKey: ["haircuts"],
@@ -33,6 +34,7 @@ export default function InspirationImagePicker() {
   const handleContinue = () => {
     if (!inspirationUri) return;
     setSelectedCut(inspirationUri);
+    setPendingGeneration(true);
     router.push("/login-screen");
   };
 

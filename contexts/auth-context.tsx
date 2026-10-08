@@ -11,6 +11,7 @@ import { API_BASE_URL } from "../src/constants/api-config";
 import { checkRevenueCatUser } from "../utils/check-revenuecat-user";
 import type { User } from "../types/user";
 import { fetchValidatedUser } from "../utils/fetch-validated-user";
+import { markOnboardingSeen} from "../utils/onboarding-flag";
 
 interface AuthContextType {
   accessToken: string | null;
@@ -45,6 +46,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     setUser(userData);
     await SecureStore.setItemAsync("accessToken", accessToken); // using securestore here than async storage (stores plain text) for better security
     await SecureStore.setItemAsync("refreshToken", refreshToken);
+    await markOnboardingSeen();
     await checkRevenueCatUser(userData.id);
   };
 
@@ -130,6 +132,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         if (freshUser) {
           setUser(freshUser);
           setAccessToken(currentAccessToken);
+          await markOnboardingSeen();
           await checkRevenueCatUser(freshUser.id);
         }
       } catch (error) {

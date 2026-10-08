@@ -20,30 +20,46 @@ import {
 import { AnimatedSplashOverlay } from "@/components/animated-icon";
 import { useAuth, AuthProvider } from "../../contexts/auth-context";
 import Purchases from "react-native-purchases";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { QueryClientProvider, QueryClient } from "@tanstack/react-query";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { getHasSeenOnboarding } from "../../utils/onboarding-flag";
 
 const queryClient = new QueryClient();
 
 function RootLayoutWithAuth() {
   const { accessToken, loading } = useAuth();
+  const [hasSeenOnboarding, setHasSeenOnboarding] = useState<boolean | null>(
+    null,
+  );
 
-  if (loading) {
+  console.log("accessToken", accessToken);
+  console.log("hasSeenOnboarding", hasSeenOnboarding);
+
+  useEffect(() => {
+    getHasSeenOnboarding().then(setHasSeenOnboarding);
+  }, [accessToken]); // re-read after login/logout
+
+  if (loading || hasSeenOnboarding === null) {
     return null;
   }
 
-  return (
-    <Stack>
-      <Stack.Protected guard={!!accessToken}>
-        <Stack.Screen name="(protected)" options={{ headerShown: false }} />
-      </Stack.Protected>
-      <Stack.Protected guard={!accessToken}>
-        <Stack.Screen name="(public)" options={{ headerShown: false }} />
-        {/* <Stack.Screen name="(onboarding)" options={{ headerShown: false }} /> */}
-      </Stack.Protected>
-    </Stack>
-  );
+return (
+  <Stack>
+    <Stack.Protected guard={!!accessToken}>
+      <Stack.Screen name="(protected)" options={{ headerShown: false }} />
+    </Stack.Protected>
+
+    {/* Only exists for first-time users, and is listed first so it's the landing screen */}
+    <Stack.Protected guard={!accessToken && !hasSeenOnboarding}>
+      <Stack.Screen name="(onboarding)" options={{ headerShown: false }} />
+    </Stack.Protected>
+
+    <Stack.Protected guard={!accessToken}>
+      <Stack.Screen name="(public)" options={{ headerShown: false }} />
+    </Stack.Protected>
+  </Stack>
+);
 }
 
 export default function TabLayout() {

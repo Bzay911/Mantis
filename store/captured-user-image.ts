@@ -11,11 +11,3 @@ export const useCapturedUserImageStore = create<userImageState>((set) => ({
     setCapturedUserImage: (userImage) => set({ capturedUserImage: userImage }),
     clearCapturedUserImage: () => set({ capturedUserImage: null }),
 }));
-
-//   const [inspirationImageUri, setInspirationImageUri] = useState
-//     string | null
-//   >(null);
-
-//  const [inspirationImageUri, setInspirationImageUri] = useState<string | null>(
-//     null,
-//   );
