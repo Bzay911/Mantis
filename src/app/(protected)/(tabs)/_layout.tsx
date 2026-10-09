@@ -1,9 +1,14 @@
 import { NativeTabs } from "expo-router/unstable-native-tabs";
-import {DynamicColorIOS} from "react-native";
+import {DynamicColorIOS, Platform} from "react-native";
 
 export default function TabsLayout() {
+  const tint =
+  Platform.OS === "ios"
+    ? DynamicColorIOS({ light: "#9DC228", dark: "#9DC228" })
+    : "#9DC228";
+    
     return (
-        <NativeTabs minimizeBehavior="onScrollDown" tintColor={DynamicColorIOS({light: "#9DC228", dark: "#9DC228"})}> 
+        <NativeTabs minimizeBehavior="onScrollDown" tintColor={tint}> 
       <NativeTabs.Trigger name="index">
         <NativeTabs.Trigger.Label>Home</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon sf={{default: "square.grid.2x2", selected: "square.grid.2x2.fill"}} md="home" />

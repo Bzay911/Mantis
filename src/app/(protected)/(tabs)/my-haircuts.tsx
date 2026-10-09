@@ -1,5 +1,4 @@
 import {
-  ImageBackground,
   View,
   Text,
   SectionList,
@@ -69,7 +68,7 @@ export default function MyHaircuts() {
       queryClient.invalidateQueries({ queryKey: ["haircuts", accessToken] });
     },
     onError: () => {
-       Presets.System.notificationError();
+      Presets.System.notificationError();
       Alert.alert("Couldn't delete", "Please try again.");
     },
   });
@@ -251,13 +250,6 @@ export default function MyHaircuts() {
             Tap the camera in the bottom-right corner to start creating your
             first haircut.
           </Text>
-          <View className="absolute bottom-0 right-10">
-            <ImageBackground
-              source={require("../../../../assets/images/app-images/my-haircuts-palceholder.png")}
-              className="h-80 w-80"
-              resizeMode="cover"
-            />
-          </View>
         </View>
       )}
     </SafeAreaView>

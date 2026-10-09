@@ -1,3 +1,3 @@
-export const API_BASE_URL = "http://192.168.1.80:3000";
+// export const API_BASE_URL = "http://192.168.1.80:3000";
 
-// export const API_BASE_URL = "http://192.168.1.31:3000";
+export const API_BASE_URL = "https://mantis-backend-iota.vercel.app"

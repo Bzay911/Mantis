@@ -101,13 +101,6 @@ export default function AiPage() {
     refetchUser();
   }, []);
 
-//   useFocusEffect(
-//     useCallback(() => {
-//     console.log("refetchUser called from useFocusEffect"),
-//     refetchUser();
-//   }, [refetchUser]),
-// );
-
   // Haptic feedback for loading state
   useEffect(() => {
     if (isLoading) {
@@ -172,34 +165,6 @@ export default function AiPage() {
     setPendingGeneration(false); // consume the flag so it only fires once
     handleGenerate();
   }, [pendingGeneration, accessToken, userImageUri, inspirationImageUri]);
-
-  // const pickImageFromGallery = async () => {
-  //   const permissionResult =
-  //     await ImagePicker.requestMediaLibraryPermissionsAsync();
-
-  //   if (!permissionResult.granted) {
-  //     Alert.alert(
-  //       "Permission required",
-  //       "Permission to access the gallery is required!",
-  //     );
-  //     return;
-  //   }
-
-  //   let result = await ImagePicker.launchImageLibraryAsync({
-  //     mediaTypes: ["images"],
-  //     quality: 1,
-  //   });
-  //   bottomSheetRef.current?.close();
-  //   setSheetView("options");
-
-  //   if (!result.canceled) {
-  //     if (sheetTarget === "user") {
-  //       setUserImageUri(result.assets[0].uri);
-  //     } else {
-  //       setInspirationImageUri(result.assets[0].uri);
-  //     }
-  //   }
-  // };
 
   const handlePickFromGallery = async () => {
     const uri = await pickImageFromGallery();
@@ -394,57 +359,31 @@ export default function AiPage() {
           </View>
         ) : (
           <ScrollView
-            contentContainerStyle={{
-              flexGrow: 1,
-              justifyContent: "space-between",
-            }}
+            contentContainerStyle={{ flexGrow: 1 }}
             keyboardShouldPersistTaps="handled"
-            className="flex-1"
+            className="flex-1 mt-4"
           >
-            <View>
-              <View className="flex-row items-center justify-center gap-2">
-                <Pressable
-                  className="w-[130px] h-[130px] bg-white rounded-full items-center justify-center"
-                  onPress={() => handleSnapPress(0, "user")}
-                >
-                  <View className="w-[128px] h-[128px] bg-black rounded-full items-center justify-center">
-                    {userImageUri ? (
-                      <Image
-                        source={{ uri: userImageUri }}
-                        contentFit="cover"
-                        style={{ width: 128, height: 128, borderRadius: 65 }}
-                      />
-                    ) : (
-                      <Ionicons name="add" size={50} color="gray" />
-                    )}
-                  </View>
-                </Pressable>
+            <View className="gap-3">
+              <ImageSlot
+                uri={userImageUri}
+                label="Your photo"
+                onPress={() => handleSnapPress(0, "user")}
+                onClear={() => setUserImageUri(null)}
+              />
+              <ImageSlot
+                uri={inspirationImageUri}
+                label="Hairstyle inspiration"
+                onPress={() => handleSnapPress(0, "inspiration")}
+                onClear={() => setInspirationImageUri(null)}
+              />
+            </View>
 
-                <Pressable
-                  className="w-[130px] h-[130px] bg-white rounded-full items-center justify-center"
-                  onPress={() => handleSnapPress(0, "inspiration")}
-                >
-                  <View className="w-[128px] h-[128px] bg-black rounded-full items-center justify-center">
-                    {inspirationImageUri ? (
-                      <Image
-                        source={{ uri: inspirationImageUri }}
-                        contentFit="cover"
-                        style={{ width: 128, height: 128, borderRadius: 65 }}
-                      />
-                    ) : (
-                      <Ionicons name="add" size={50} color="gray" />
-                    )}
-                  </View>
-                </Pressable>
-              </View>
-
-              <View className="mt-6">
-                <Text className="text-gray-500 text-center font-jakarta">
-                  Add an inspiration image to help the AI understand the style
-                  you want for your cut. Press the plus button to select an
-                  inspiration image.
-                </Text>
-              </View>
+            <View className="mt-4 mb-2">
+              <Text className="text-gray-500 text-center font-jakarta">
+                Add an inspiration image to help the AI understand the style you
+                want for your cut. Press the plus button to select an
+                inspiration image.
+              </Text>
             </View>
           </ScrollView>
         )}
@@ -606,5 +545,52 @@ export default function AiPage() {
         )}
       </BottomSheet>
     </SafeAreaView>
+  );
+}
+
+type ImageSlotProps = {
+  uri: string | null;
+  label: string;
+  onPress: () => void;
+  onClear: () => void;
+};
+
+function ImageSlot({ uri, label, onPress, onClear }: ImageSlotProps) {
+  return (
+    <Pressable
+      onPress={onPress}
+      className="aspect-[4/3] bg-[#1c1c1e] rounded-[28px] items-center justify-center overflow-hidden active:opacity-80"
+    >
+      {uri ? (
+        <>
+          <Image
+            source={{ uri }}
+            contentFit="cover"
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              borderRadius: 28,
+            }}
+          />
+          <Pressable
+            onPress={onClear}
+            hitSlop={10}
+            className="absolute top-3 right-3 w-8 h-8 rounded-full bg-black/60 items-center justify-center"
+          >
+            <Ionicons name="close" size={18} color="white" />
+          </Pressable>
+        </>
+      ) : (
+        <View className="items-center gap-2">
+          <Ionicons name="add" size={32} color="#9DC228" />
+          <Text className="text-gray-400 text-base font-jakarta-semibold">
+            {label}
+          </Text>
+        </View>
+      )}
+    </Pressable>
   );
 }

@@ -7,6 +7,7 @@ import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
 import { Presets } from "react-native-pulsar";
+import { LinearGradient } from "expo-linear-gradient";
 
 type Props = {
   onProceed: (uri: string) => void;
@@ -77,7 +78,7 @@ export function CameraCapture({ onProceed, onClose }: Props) {
       <View>
         <Pressable
           onPress={() => setUri(null)}
-          className="absolute top-4 right-6 z-10 bg-gray-400 p-2 rounded-full"
+          className="absolute top-4 right-6 z-10 bg-black/60 p-2 rounded-full"
         >
           <Ionicons name="close" size={28} color="white" />
         </Pressable>
@@ -119,41 +120,69 @@ export function CameraCapture({ onProceed, onClose }: Props) {
       <View className="flex-1">
         <Pressable
           onPress={() => onClose()}
-          className="absolute top-4 right-4 z-10 bg-gray-400 p-2 rounded-full"
+          className="absolute top-4 right-4 z-10 bg-black/60 p-2 rounded-full"
         >
           <Ionicons name="close" size={28} color="white" />
         </Pressable>
-        <CameraView
-          style={{ flex: 1 }}
-          facing={facing}
-          ref={cameraRef}
-          mirror={true}
-        />
-        <View className="bg-black w-full h-[120px] items-center justify-between flex-row p-2">
+
+        <View className="flex-1 rounded-b-[28px] overflow-hidden">
+          <CameraView
+            style={{ flex: 1 }}
+            facing={facing}
+            ref={cameraRef}
+            mirror={true}
+          />
+
+          <LinearGradient
+            colors={["transparent", "rgba(0,0,0,0.75)"]}
+            pointerEvents="none"
+            style={{
+              position: "absolute",
+              left: 0,
+              right: 0,
+              bottom: 0,
+              paddingHorizontal: 24,
+              paddingTop: 60,
+              paddingBottom: 24,
+            }}
+          >
+            <Text className="text-white text-2xl font-fraunces-semibold">
+              Look straight ahead.
+            </Text>
+            <Text className="text-gray-300 text-base font-jakarta mt-1">
+              Hair off your face, soft light.
+            </Text>
+          </LinearGradient>
+        </View>
+        <View className="bg-black w-full h-[120px] items-center justify-between flex-row px-6">
           <Pressable
             onPress={pickImageFromGallery}
-            className="bg-gray-300 p-3 rounded-full m-2"
+            className="w-14 h-14 rounded-full bg-[#2c2c2e] items-center justify-center active:opacity-70"
           >
-            <Ionicons name="image" size={28} color="black" />
+            <Ionicons name="image-outline" size={24} color="white" />
           </Pressable>
 
-          <Pressable onPress={() => {
-            Presets.System.impactHeavy();
-            takePicture()
-          }} className="">
+          <Pressable
+            onPress={() => {
+              Presets.System.impactMedium();
+              takePicture();
+            }}
+          >
             {({ pressed }) => (
-              <View
-                className={`w-20 h-20 rounded-full bg-gray-300 items-center justify-center ${pressed ? "opacity-50" : "opacity-100"}`}
-              >
-                <View className="w-16 h-16 rounded-full bg-white" />
+              <View className="w-20 h-20 rounded-full border-4 border-[#9DC228] bg-black items-center justify-center">
+                <View
+                  className="w-[62px] h-[62px] rounded-full bg-white"
+                  style={{ transform: [{ scale: pressed ? 0.9 : 1 }] }}
+                />
               </View>
             )}
           </Pressable>
+
           <Pressable
             onPress={toggleCameraFacing}
-            className="bg-gray-300 p-3 rounded-full m-2"
+            className="w-14 h-14 rounded-full bg-[#2c2c2e] items-center justify-center active:opacity-70"
           >
-            <Ionicons name="camera-reverse" size={28} color="black" />
+            <Ionicons name="sync" size={24} color="white" />
           </Pressable>
         </View>
       </View>
