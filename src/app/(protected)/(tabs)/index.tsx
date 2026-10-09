@@ -39,17 +39,6 @@ export default function ProtectedIndex() {
     queryFn: fetchHaircuts,
   });
 
-
-
-    // const capturedUserImage = useCapturedUserImageStore(
-    //   (s) => s.capturedUserImage,
-    // );
-
-    // const selectedCut = useSelectedCutStore((s) => s.selectedCut);
-
-    // console.log("capturedUserImage", capturedUserImage);
-    // console.log("selectedCut", selectedCut);
-
   const chips = useMemo(() => {
     const uniqueTypes = Array.from(new Set(haircuts.map((h) => h.hairType)));
     return ["All", ...uniqueTypes];

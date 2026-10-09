@@ -6,18 +6,23 @@ import { useState } from "react";
 import { ActivityIndicator, Pressable, Text, View } from "react-native";
 import { FlatList } from "react-native-gesture-handler";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { OnboardingHeader } from "../../../../components/onboarding/onboarding-header";
-import { useSelectedCutStore } from "../../../../store/use-selected-cut";
-import type { Haircut } from "../../../../types/haircut";
-import fetchHaircuts from "../../../../utils/fetch-haircuts";
-import { pickImageFromGallery } from "../../../../utils/pick-image-from-gallery";
-import { useOnboardingStore } from "../../../../store/onboarding-store";
+import { OnboardingHeader } from "../../../components/onboarding/onboarding-header";
+import { useOnboardingStore } from "../../../store/onboarding-store";
+import { useSelectedCutStore } from "../../../store/use-selected-cut";
+import type { Haircut } from "../../../types/haircut";
+import fetchHaircuts from "../../../utils/fetch-haircuts";
+import { pickImageFromGallery } from "../../../utils/pick-image-from-gallery";
+
+const SURFACE = "#131315";
+const SURFACE_RAISED = "#1C1C1E";
 
 export default function InspirationImagePicker() {
   const router = useRouter();
   const [inspirationUri, setInspirationUri] = useState<string | null>(null);
   const setSelectedCut = useSelectedCutStore((s) => s.setSelectedCut);
-  const setPendingGeneration = useOnboardingStore((s) => s.setPendingGeneration);
+  const setPendingGeneration = useOnboardingStore(
+    (s) => s.setPendingGeneration,
+  );
 
   const { data: haircuts = [], isLoading } = useQuery({
     queryKey: ["haircuts"],
@@ -40,9 +45,17 @@ export default function InspirationImagePicker() {
 
   return (
     <SafeAreaView className="flex-1 bg-black">
-      <OnboardingHeader step={3} />
+      <View className="flex-1 px-6 pt-4">
+        {/* Back */}
+        <Pressable
+          onPress={() => router.back()}
+          hitSlop={8}
+          className="w-12 h-12 rounded-full items-center justify-center active:opacity-70"
+          style={{ backgroundColor: SURFACE_RAISED }}
+        >
+          <Ionicons name="chevron-back" size={22} color="white" />
+        </Pressable>
 
-      <View className="flex-1 px-6">
         <Text className="text-3xl font-fraunces-semibold text-white mt-4 mb-2">
           Now, show us the look.
         </Text>
@@ -51,16 +64,24 @@ export default function InspirationImagePicker() {
         </Text>
 
         {inspirationUri ? (
-          <View className="items-center mb-6">
+          <View
+            className="flex-1 rounded-[32px] overflow-hidden mb-6"
+            style={{ backgroundColor: SURFACE }}
+          >
             <Image
               source={{ uri: inspirationUri }}
               contentFit="cover"
-              style={{ width: 200, height: 200, borderRadius: 20 }}
+              transition={200}
+              style={{ width: "100%", height: "100%" }}
             />
-            <Pressable onPress={() => setInspirationUri(null)} className="mt-3">
-              <Text className="text-[#9DC228] font-jakarta-semibold">
-                Choose a different look
-              </Text>
+
+            {/* Clear selected look */}
+            <Pressable
+              onPress={() => setInspirationUri(null)}
+              hitSlop={8}
+              className="absolute top-4 right-4 w-10 h-10 rounded-full bg-black/60 items-center justify-center"
+            >
+              <Ionicons name="close" size={20} color="white" />
             </Pressable>
           </View>
         ) : (
@@ -71,7 +92,7 @@ export default function InspirationImagePicker() {
             >
               <Ionicons name="folder-outline" size={22} color="#9DC228" />
               <Text className="text-white text-base font-jakarta">
-                Upload from gallery
+                Pick from Library
               </Text>
             </Pressable>
 
@@ -86,6 +107,7 @@ export default function InspirationImagePicker() {
                 data={haircuts}
                 keyExtractor={(item: Haircut) => item.id}
                 contentContainerStyle={{ paddingBottom: 32 }}
+                showsVerticalScrollIndicator={false}
                 renderItem={({ item }: { item: Haircut }) => (
                   <Pressable
                     onPress={() =>
@@ -97,7 +119,7 @@ export default function InspirationImagePicker() {
                       source={
                         item.imageUrl
                           ? { uri: item.imageUrl }
-                          : require("../../../../assets/images/app-images/placeholder-image.jpeg")
+                          : require("../../../assets/images/app-images/user-placeholder.png")
                       }
                       contentFit="cover"
                       style={{ width: 56, height: 56, borderRadius: 10 }}
@@ -145,6 +167,8 @@ export default function InspirationImagePicker() {
           </Text>
         </Pressable>
       </View>
+
+      <OnboardingHeader step={3} />
     </SafeAreaView>
   );
 }

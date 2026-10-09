@@ -1,31 +1,49 @@
 // components/onboarding/onboarding-header.tsx
-import { View, Pressable } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { View } from "react-native";
 
-export function OnboardingHeader({ step, totalSteps = 4 }: { step: number; totalSteps?: number }) {
-  const router = useRouter();
+type Variant = "dark" | "light";
+
+const COLORS: Record<Variant, { active: string; inactive: string }> = {
+  // Black screens (user image + inspiration pickers)
+  dark: { active: "#9DC228", inactive: "#2C2C2E" },
+  // Lime welcome screen
+  light: { active: "#0A0A0A", inactive: "#93AA45" },
+};
+
+export function OnboardingHeader({
+  step,
+  totalSteps = 4,
+  variant = "dark",
+  className = "",
+}: {
+  step: number;
+  totalSteps?: number;
+  variant?: Variant;
+  className?: string;
+}) {
+  const { active, inactive } = COLORS[variant];
 
   return (
-    <View className="flex-row items-center justify-between px-4 pt-2 pb-4">
-      <Pressable onPress={() => router.back()} hitSlop={12}>
-        <Ionicons
-          name="chevron-back"
-          size={26}
-          color={step === 1 ? "transparent" : "white"}
-        />
-      </Pressable>
-      <View className="flex-row gap-2">
-        {Array.from({ length: totalSteps }).map((_, i) => (
+    <View
+      className={`flex-row items-center justify-center gap-2 pt-2 pb-3 ${className}`}
+      accessibilityRole="progressbar"
+      accessibilityLabel={`Step ${step} of ${totalSteps}`}
+    >
+      {Array.from({ length: totalSteps }).map((_, i) => {
+        const isCurrent = i === step - 1;
+        const isDone = i < step;
+
+        return (
           <View
             key={i}
-            className={`h-1.5 rounded-full ${
-              i < step ? "bg-[#9DC228] w-6" : "bg-[#2c2c2e] w-4"
-            }`}
+            className="h-2 rounded-full"
+            style={{
+              width: isCurrent ? 36 : 20,
+              backgroundColor: isDone ? active : inactive,
+            }}
           />
-        ))}
-      </View>
-      <View style={{ width: 26 }} />
+        );
+      })}
     </View>
   );
 }

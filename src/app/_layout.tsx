@@ -36,9 +36,13 @@ function RootLayoutWithAuth() {
   console.log("accessToken", accessToken);
   console.log("hasSeenOnboarding", hasSeenOnboarding);
 
-  useEffect(() => {
-    getHasSeenOnboarding().then(setHasSeenOnboarding);
-  }, [accessToken]); // re-read after login/logout
+  // useEffect(() => {
+  //   getHasSeenOnboarding().then(setHasSeenOnboarding);
+  // }, [accessToken]); // re-read after login/logout
+
+useEffect(() => {
+  setHasSeenOnboarding(false); // TEMP: remove when done
+}, []);
 
   if (loading || hasSeenOnboarding === null) {
     return null;
