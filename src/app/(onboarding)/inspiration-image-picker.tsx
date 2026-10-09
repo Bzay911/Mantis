@@ -154,16 +154,21 @@ export default function InspirationImagePicker() {
         <Pressable
           disabled={!inspirationUri}
           onPress={handleContinue}
-          className={`items-center justify-center rounded-full py-4 ${
+          className={`flex-row items-center justify-center gap-2 rounded-full py-4 ${
             inspirationUri ? "bg-[#9DC228]" : "bg-[#2c2c2e]"
           }`}
         >
+          <Ionicons
+            name="sparkles"
+            size={20}
+            color={inspirationUri ? "black" : "#6b6b6b"}
+          />
           <Text
             className={`text-lg font-jakarta-semibold ${
               inspirationUri ? "text-black" : "text-[#6b6b6b]"
             }`}
           >
-            Continue
+            Generate my look
           </Text>
         </Pressable>
       </View>

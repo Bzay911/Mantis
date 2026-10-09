@@ -7,7 +7,7 @@ import { useQuery } from "@tanstack/react-query";
 import { File } from "expo-file-system";
 import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -100,6 +100,13 @@ export default function AiPage() {
   useEffect(() => {
     refetchUser();
   }, []);
+
+//   useFocusEffect(
+//     useCallback(() => {
+//     console.log("refetchUser called from useFocusEffect"),
+//     refetchUser();
+//   }, [refetchUser]),
+// );
 
   // Haptic feedback for loading state
   useEffect(() => {

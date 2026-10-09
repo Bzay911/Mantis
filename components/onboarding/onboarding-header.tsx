@@ -4,9 +4,7 @@ import { View } from "react-native";
 type Variant = "dark" | "light";
 
 const COLORS: Record<Variant, { active: string; inactive: string }> = {
-  // Black screens (user image + inspiration pickers)
   dark: { active: "#9DC228", inactive: "#2C2C2E" },
-  // Lime welcome screen
   light: { active: "#0A0A0A", inactive: "#93AA45" },
 };
 

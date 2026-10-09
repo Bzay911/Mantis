@@ -1,19 +1,19 @@
 import {
+  AccessibilityInfo,
+  ActivityIndicator,
+  Alert,
+  Animated,
+  Easing,
+  Linking,
   Pressable,
   Text,
   View,
-  Alert,
-  ActivityIndicator,
-  FlatList,
-  Linking,
   useWindowDimensions,
-  NativeSyntheticEvent,
-  NativeScrollEvent,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { Image } from "expo-image";
-import { FontAwesome } from "@expo/vector-icons";
+import { FontAwesome, Ionicons } from "@expo/vector-icons";
 import { useEffect, useRef, useState } from "react";
 import {
   GoogleSignin,
@@ -29,36 +29,88 @@ GoogleSignin.configure({
   iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
 });
 
-const BACKGROUNDS = [
-  require("../../../assets/images/auth-page-images/sign-in-image1.jpg"),
-  require("../../../assets/images/auth-page-images/sign-in-image2.jpg"),
-  require("../../../assets/images/auth-page-images/sign-in-image3.jpg"),
-];
+const LIME = "#9DC228";
 
-const AUTO_ADVANCE_MS = 6000;
+const BEFORE_IMAGE = require("../../../assets/images/auth-page-images/login-img-user.png");
+const AFTER_IMAGE = require("../../../assets/images/auth-page-images/login-img-taper-fade.png");
+
+// Share of the screen height the before/after photo takes up.
+const PHOTO_HEIGHT_RATIO = 0.66;
+
+/**
+ * Drives the lime line: 0 = fully "after", 1 = fully "before".
+ * Starts in the middle, sweeps left, pauses, sweeps right, pauses, returns to the middle.
+ */
+function useRevealProgress() {
+  const progress = useRef(new Animated.Value(0.5)).current;
+
+  useEffect(() => {
+    let loop: Animated.CompositeAnimation | null = null;
+    let cancelled = false;
+
+    const ease = Easing.inOut(Easing.ease);
+    const move = (toValue: number, duration: number) =>
+      Animated.timing(progress, { toValue, duration, easing: ease, useNativeDriver: true });
+
+    AccessibilityInfo.isReduceMotionEnabled().then((reduceMotion) => {
+      if (cancelled || reduceMotion) return; // stay split down the middle
+      loop = Animated.loop(
+        Animated.sequence([
+          move(0, 2000),
+          Animated.delay(1200),
+          move(1, 2400),
+          Animated.delay(1200),
+          move(0.5, 1200),
+        ]),
+      );
+      loop.start();
+    });
+
+    return () => {
+      cancelled = true;
+      loop?.stop();
+    };
+  }, [progress]);
+
+  return progress;
+}
+
+function Tag({ label, side, lime }: { label: string; side: "left" | "right"; lime?: boolean }) {
+  return (
+    <View
+      style={[
+        {
+          position: "absolute",
+          borderRadius: 999,
+          paddingHorizontal: 12,
+          paddingVertical: 7,
+          backgroundColor: lime ? LIME : "rgba(0,0,0,0.6)",
+        },
+        side === "left" ? { left: 20 } : { right: 20 },
+      ]}
+    >
+      <Text
+        className="font-jakarta-semibold text-xs"
+        style={{ color: lime ? "#0b0b0b" : "#fff", letterSpacing: 1.2 }}
+      >
+        {label}
+      </Text>
+    </View>
+  );
+}
 
 export default function LoginScreen() {
   const [googleLoading, setGoogleLoading] = useState(false);
   const { login } = useAuth();
   const { width, height } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
 
-  const listRef = useRef<FlatList>(null);
-  const [activeIndex, setActiveIndex] = useState(0);
+  const photoHeight = Math.round(height * PHOTO_HEIGHT_RATIO);
+  const progress = useRevealProgress();
 
-  // Schedule the next slide whenever the active slide changes. Because it
-  // depends on activeIndex, a manual swipe automatically restarts the timer.
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      const next = (activeIndex + 1) % BACKGROUNDS.length;
-      listRef.current?.scrollToIndex({ index: next, animated: true });
-      setActiveIndex(next);
-    }, AUTO_ADVANCE_MS);
-    return () => clearTimeout(timer);
-  }, [activeIndex]);
-
-  const handleScrollEnd = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    setActiveIndex(Math.round(e.nativeEvent.contentOffset.x / width));
-  };
+  // Where the line sits, in px from the left edge.
+  const revealX = progress.interpolate({ inputRange: [0, 1], outputRange: [0, width] });
+  const revealXNegative = progress.interpolate({ inputRange: [0, 1], outputRange: [0, -width] });
 
   const handleGoogleSignin = async (idToken: string) => {
     try {
@@ -104,10 +156,7 @@ export default function LoginScreen() {
             console.log("Play service not available", error.message);
             break;
           default:
-            Alert.alert(
-              "Error signing in with Google",
-              "Please proceed using email and password.",
-            );
+            Alert.alert("Error signing in with Google", "Please try again in a moment.");
         }
       }
     } finally {
@@ -117,95 +166,127 @@ export default function LoginScreen() {
 
   return (
     <View className="flex-1 bg-black">
-      {/* Swipeable background */}
-      <FlatList
-        ref={listRef}
-        data={BACKGROUNDS}
-        keyExtractor={(_, i) => String(i)}
-        horizontal
-        pagingEnabled
-        showsHorizontalScrollIndicator={false}
-        getItemLayout={(_, index) => ({
-          length: width,
-          offset: width * index,
-          index,
-        })}
-        onMomentumScrollEnd={handleScrollEnd}
-        style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}
-        renderItem={({ item }) => (
-          <Image source={item} contentFit="cover" style={{ width, height }} />
-        )}
-      />
-
-      {/* Gradient keeps the text readable on any photo. pointerEvents="none"
-          lets swipes pass through to the list underneath. */}
-      <LinearGradient
-        colors={["transparent", "rgba(0,0,0,0.55)", "rgba(0,0,0,0.92)"]}
-        locations={[0, 0.55, 1]}
-        className="absolute inset-0"
+      {/* Before / after photo with sweeping reveal line */}
+      <View
+        style={{ position: "absolute", left: 0, right: 0, top: 0, height: photoHeight, overflow: "hidden" }}
         pointerEvents="none"
-      />
-
-      <SafeAreaView
-        className="flex-1"
-        edges={["top", "bottom"]}
-        pointerEvents="box-none"
       >
-        {/* Spacer pushes everything below to the bottom third */}
+        <Image
+          source={BEFORE_IMAGE}
+          contentFit="cover"
+          contentPosition={{ left: "30%", top: "40%" }}
+          style={{ position: "absolute", width, height: photoHeight }}
+          accessibilityLabel="Before: longer, swept-back hair"
+        />
+
+        {/* "After" layer: the window slides right with the line while the image
+            slides left by the same amount, so the photo itself stays still. */}
+        <Animated.View
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            width,
+            height: photoHeight,
+            overflow: "hidden",
+            transform: [{ translateX: revealX }],
+          }}
+        >
+          <Animated.View style={{ transform: [{ translateX: revealXNegative }] }}>
+            <Image
+              source={AFTER_IMAGE}
+              contentFit="cover"
+              contentPosition="center"
+              style={{ width, height: photoHeight }}
+              accessibilityLabel="After: short skin fade"
+            />
+          </Animated.View>
+        </Animated.View>
+
+        {/* Lime reveal line */}
+        <Animated.View
+          style={{
+            position: "absolute",
+            top: 0,
+            left: -1.5,
+            width: 3,
+            height: photoHeight,
+            backgroundColor: LIME,
+            shadowColor: LIME,
+            shadowOpacity: 0.8,
+            shadowRadius: 10,
+            shadowOffset: { width: 0, height: 0 },
+            transform: [{ translateX: revealX }],
+          }}
+        />
+
+        {/* Darken under the status bar, and fade the photo into black */}
+        <LinearGradient
+          colors={["rgba(0,0,0,0.7)", "transparent"]}
+          style={{ position: "absolute", left: 0, right: 0, top: 0, height: insets.top + 60 }}
+        />
+        <LinearGradient
+          colors={["transparent", "#000"]}
+          style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: photoHeight * 0.43 }}
+        />
+
+        <View style={{ position: "absolute", left: 0, right: 0, top: insets.top + 16 }}>
+          <Tag label="BEFORE" side="left" />
+          <Tag label="AFTER" side="right" lime />
+        </View>
+      </View>
+
+      <SafeAreaView className="flex-1" edges={["top", "bottom"]} pointerEvents="box-none">
         <View className="flex-1" pointerEvents="none" />
 
-        <View className="gap-6 px-6 pb-4" pointerEvents="box-none">
-          {/* Page dots */}
-          <View className="flex-row gap-2">
-            {BACKGROUNDS.map((_, i) => (
-              <View
-                key={i}
-                className={`h-1.5 rounded-full ${
-                  i === activeIndex ? "w-6 bg-[#9DC228]" : "w-1.5 bg-white/40"
-                }`}
-              />
-            ))}
+        <View className="px-6 pb-4" pointerEvents="box-none">
+          <View className="flex-row items-center gap-2">
+            <Ionicons name="sparkles" size={18} color={LIME} />
+            <Text className="font-jakarta-semibold text-[15px]" style={{ color: LIME }}>
+              Mantis
+            </Text>
           </View>
 
-          <View className="gap-2">
-            <Text className="text-[34px] font-fraunces-semibold leading-tight text-white">
-              Welcome back
-            </Text>
-            <Text className="text-base text-zinc-300 font-jakarta">
-              Sign in to your Mantis AI account
-            </Text>
-          </View>
+          <Text
+            className="mt-3.5 font-fraunces-semibold text-white"
+            style={{ fontSize: 38, lineHeight: 40, letterSpacing: -0.6 }}
+          >
+            Try it on before{"\n"}you cut it.
+          </Text>
+
+          <Text className="mt-2.5 font-jakarta text-[15px] leading-[22px] text-zinc-400">
+            Sign in to save your looks and pick up where you left off.
+          </Text>
 
           <Pressable
-            className="flex-row items-center justify-center gap-3 rounded-2xl bg-[#9DC228] px-4 py-4 active:opacity-80"
+            className="mt-6 h-14 flex-row items-center justify-center gap-3 rounded-full active:opacity-80"
+            style={{ backgroundColor: LIME }}
             accessibilityRole="button"
+            accessibilityLabel="Continue with Google"
             onPress={googleSignIn}
             disabled={googleLoading}
           >
             {googleLoading ? (
               <>
-                <ActivityIndicator color="#1a1a1a" />
-                <Text className="text-base font-jakarta-semibold text-zinc-900">
-                  Signing in...
-                </Text>
+                <ActivityIndicator color="#0b0b0b" />
+                <Text className="font-jakarta-semibold text-base text-zinc-900">Signing in...</Text>
               </>
             ) : (
               <>
-                <FontAwesome name="google" size={18} color="#1a1a1a" />
-                <Text className="text-base font-jakarta-semibold text-zinc-900">
-                  Sign in with Google
+                <FontAwesome name="google" size={18} color="#0b0b0b" />
+                <Text className="font-jakarta-semibold text-base text-zinc-900">
+                  Continue with Google
                 </Text>
               </>
             )}
           </Pressable>
 
-          <Text className="text-center text-sm font-jakarta text-white">
-            By continuing, you agree to our{" "}
+          <Text className="mt-4 text-center font-jakarta text-xs text-zinc-500">
+            By continuing, you agree to our {" "}
             <Text
-              className="font-semibold text-white underline"
-              onPress={() =>
-                Linking.openURL("https://bzay911.github.io/Mantis-terms-of-use/")
-              }
+              className="text-zinc-300 underline"
+              accessibilityRole="link"
+              onPress={() => Linking.openURL("https://bzay911.github.io/Mantis-terms-of-use/")}
             >
               Terms of Service
             </Text>

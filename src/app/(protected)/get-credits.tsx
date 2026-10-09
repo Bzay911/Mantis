@@ -9,7 +9,7 @@ export default function GetCredits() {
     <View style={{ flex: 1 }}>
       <RevenueCatUI.Paywall
         onDismiss={() => {
-          router.back();
+          router.replace("/")
         }}
       />
     </View>
